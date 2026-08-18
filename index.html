@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MH VISION — Malayalam Knowledge Hub & PDF Publications</title>
+  <link rel="icon" type="image/jpeg" href="assets/logo.jpg">
+  
+  <!-- Fonts: Playfair Display (Editorial Serif) & Plus Jakarta Sans (Clean Modern Sans) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- Canvas Confetti CDN for checkout celebration -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+
+  <!-- PDF.js CDN (optional embed helper) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            serif: ['"Playfair Display"', 'Georgia', 'serif'],
+            display: ['"Cinzel"', 'serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            brand: {
+              cream: '#FAF9F6',
+              surface: '#F4F3EF',
+              border: '#E8E6DF',
+              dark: '#111111',
+              darkSurface: '#1A1A1A',
+              accent: '#C5A880',
+              muted: '#737373',
+            }
+          },
+          animation: {
+            'float': 'float 6s ease-in-out infinite',
+            'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+          },
+          keyframes: {
+            float: {
+              '0%, 100%': { transform: 'translateY(0px)' },
+              '50%': { transform: 'translateY(-10px)' },
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(0, 0, 0, 0.15);
+      border-radius: 9999px;
+    }
+    .dark ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.2);
+    }
+    
+    /* Editorial letter spacing */
+    .tracking-luxury {
+      letter-spacing: 0.25em;
+    }
+    .tracking-editorial {
+      letter-spacing: 0.15em;
+    }
+
+    /* Glassmorphism */
+    .glass-panel {
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+    .dark .glass-panel {
+      background: rgba(20, 20, 20, 0.88);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+
+    /* Noise texture overlay */
+    .bg-grain {
+      background-image: radial-gradient(rgba(0, 0, 0, 0.04) 1px, transparent 0);
+      background-size: 24px 24px;
+    }
+    .dark .bg-grain {
+      background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 0);
+      background-size: 24px 24px;
+    }
+
+    /* 3D Document tilt styling */
+    .perspective-1000 {
+      perspective: 1000px;
+    }
+    .book-shadow {
+      box-shadow: -15px 20px 40px -10px rgba(0,0,0,0.25), 0 0 1px 1px rgba(0,0,0,0.05);
+    }
+    .book-spine {
+      background: linear-gradient(90deg, rgba(255,255,255,0.3) 0%, rgba(0,0,0,0.25) 3%, transparent 8%);
+    }
+
+    /* Reading Themes */
+    .reader-theme-paper {
+      background-color: #FAF9F6;
+      color: #1A1A1A;
+    }
+    .reader-theme-sepia {
+      background-color: #F6EEDF;
+      color: #382A1B;
+    }
+    .reader-theme-dark {
+      background-color: #18181B;
+      color: #E4E4E7;
+    }
+    .reader-theme-oled {
+      background-color: #000000;
+      color: #D4D4D8;
+    }
+
+    /* Subtle cursor pill */
+    #read-cursor-pill {
+      pointer-events: none;
+      transition: transform 0.15s ease-out, opacity 0.2s ease-out;
+      transform: translate(-50%, -50%);
+    }
+  </style>
+</head>
+<body class="bg-[#FAF9F6] text-[#111111] dark:bg-[#0F0F11] dark:text-[#E8E8E8] font-sans antialiased selection:bg-black selection:text-white transition-colors duration-300 relative min-h-screen">
+  
+  <div id="app"></div>
+
+  <!-- Main Application Script -->
+  <script src="./src/app.js" type="module"></script>
+</body>
+</html>
