@@ -264,21 +264,36 @@ export function renderAdminPanel(state) {
             
             <div>
               <label class="block text-xs font-mono uppercase tracking-wider text-neutral-500 mb-1.5">Current Password *</label>
-              <input type="password" id="current-pass-input" required placeholder="Enter current admin password"
-                     class="w-full px-4 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-sm font-mono focus:outline-none focus:border-neutral-900 dark:focus:border-white">
+              <div class="relative">
+                <input type="password" id="current-pass-input" required placeholder="Enter current admin password"
+                       class="w-full px-4 py-2.5 pr-10 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-sm font-mono focus:outline-none focus:border-neutral-900 dark:focus:border-white">
+                <button type="button" onclick="window.handleTogglePass('current-pass-input', this)" class="absolute right-3 top-2.5 text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors" title="Toggle Visibility">
+                  <i data-lucide="eye" class="w-4 h-4"></i>
+                </button>
+              </div>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label class="block text-xs font-mono uppercase tracking-wider text-neutral-500 mb-1.5">New Password *</label>
-                <input type="password" id="new-pass-input" required placeholder="Enter new password"
-                       class="w-full px-4 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-sm font-mono focus:outline-none focus:border-neutral-900 dark:focus:border-white">
+                <div class="relative">
+                  <input type="password" id="new-pass-input" required placeholder="Enter new password"
+                         class="w-full px-4 py-2.5 pr-10 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-sm font-mono focus:outline-none focus:border-neutral-900 dark:focus:border-white">
+                  <button type="button" onclick="window.handleTogglePass('new-pass-input', this)" class="absolute right-3 top-2.5 text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors" title="Toggle Visibility">
+                    <i data-lucide="eye" class="w-4 h-4"></i>
+                  </button>
+                </div>
               </div>
 
               <div>
                 <label class="block text-xs font-mono uppercase tracking-wider text-neutral-500 mb-1.5">Confirm New Password *</label>
-                <input type="password" id="confirm-pass-input" required placeholder="Confirm new password"
-                       class="w-full px-4 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-sm font-mono focus:outline-none focus:border-neutral-900 dark:focus:border-white">
+                <div class="relative">
+                  <input type="password" id="confirm-pass-input" required placeholder="Confirm new password"
+                         class="w-full px-4 py-2.5 pr-10 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-sm font-mono focus:outline-none focus:border-neutral-900 dark:focus:border-white">
+                  <button type="button" onclick="window.handleTogglePass('confirm-pass-input', this)" class="absolute right-3 top-2.5 text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors" title="Toggle Visibility">
+                    <i data-lucide="eye" class="w-4 h-4"></i>
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -288,6 +303,49 @@ export function renderAdminPanel(state) {
               <button type="submit" class="inline-flex items-center space-x-2 px-6 py-2.5 rounded-full bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-xs font-bold uppercase tracking-wider hover:opacity-90 transition-opacity shadow-sm">
                 <i data-lucide="check" class="w-3.5 h-3.5"></i>
                 <span>Update Master Password</span>
+              </button>
+            </div>
+
+          </form>
+        </div>
+
+        <!-- Section 4: Razorpay Payment Gateway Settings -->
+        <div class="p-6 sm:p-8 rounded-3xl bg-white dark:bg-[#141416] border border-neutral-200 dark:border-neutral-800 shadow-sm space-y-6">
+          <div class="flex items-center space-x-3 pb-4 border-b border-neutral-200 dark:border-neutral-800">
+            <div class="w-8 h-8 rounded-lg bg-emerald-500/10 dark:bg-emerald-500/20 flex items-center justify-center">
+              <i data-lucide="credit-card" class="w-4 h-4 text-emerald-600 dark:text-emerald-400"></i>
+            </div>
+            <div>
+              <h2 class="font-serif font-bold text-xl">Razorpay Payment Gateway Keys</h2>
+              <p class="text-xs text-neutral-500">Configure your Razorpay Key ID and Secret for live or test transactions.</p>
+            </div>
+          </div>
+
+          <form id="admin-razorpay-form" onsubmit="event.preventDefault(); window.handleAdminSaveRazorpayKeys(event);" class="space-y-4 max-w-xl">
+            
+            <div>
+              <label class="block text-xs font-mono uppercase tracking-wider text-neutral-500 mb-1.5">Razorpay Key ID *</label>
+              <input type="text" id="razorpay-key-id-input" required value="${state.razorpayKeyId || 'rzp_test_TRib3eYF2tuf5z'}" placeholder="rzp_test_..."
+                     class="w-full px-4 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-sm font-mono focus:outline-none focus:border-neutral-900 dark:focus:border-white">
+            </div>
+
+            <div>
+              <label class="block text-xs font-mono uppercase tracking-wider text-neutral-500 mb-1.5">Razorpay Key Secret</label>
+              <div class="relative">
+                <input type="password" id="razorpay-key-secret-input" value="${state.razorpayKeySecret || 'mCGQsfow2qQGDMoKg4OcMvU8'}" placeholder="mCGQ..."
+                       class="w-full px-4 py-2.5 pr-10 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-sm font-mono focus:outline-none focus:border-neutral-900 dark:focus:border-white">
+                <button type="button" onclick="window.handleTogglePass('razorpay-key-secret-input', this)" class="absolute right-3 top-2.5 text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors" title="Toggle Visibility">
+                  <i data-lucide="eye" class="w-4 h-4"></i>
+                </button>
+              </div>
+            </div>
+
+            <div id="razorpay-save-status" class="text-xs font-mono hidden"></div>
+
+            <div class="pt-2">
+              <button type="submit" class="inline-flex items-center space-x-2 px-6 py-2.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wider transition-opacity shadow-sm">
+                <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+                <span>Save Razorpay Keys</span>
               </button>
             </div>
 

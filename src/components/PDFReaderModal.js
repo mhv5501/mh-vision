@@ -1,9 +1,17 @@
+import { getCloudinaryPageUrl } from '../services/cloudinary.js';
+
 export function renderPDFReaderModal(doc, state) {
   if (!doc) return '';
 
+  const isCloudinaryPdf = Boolean(doc.publicId || (doc.pdfUrl && doc.pdfUrl.includes('cloudinary.com')));
   const currentPageNum = state.readerCurrentPage || 1;
-  const totalPages = doc.pagesContent ? doc.pagesContent.length : (doc.pages || 1);
-  const currentPageData = (doc.pagesContent && doc.pagesContent[currentPageNum - 1]) || {
+  const totalPages = doc.pages || (state.pdfTotalPages || 1);
+
+  // Generate Cloudinary page image URL
+  const publicId = doc.publicId || (doc.pdfUrl ? doc.pdfUrl.split('/').pop().replace(/\.[^/.]+$/, "") : '');
+  const activePageImageUrl = isCloudinaryPdf ? getCloudinaryPageUrl(publicId, currentPageNum) : '';
+
+  const currentPageData = (!isCloudinaryPdf && doc.pagesContent && doc.pagesContent[currentPageNum - 1]) || {
     pageNumber: 1,
     chapter: 'PAGE 1',
     title: doc.title,
@@ -13,7 +21,6 @@ export function renderPDFReaderModal(doc, state) {
   const currentTheme = state.readerTheme || 'paper'; // paper, sepia, dark, oled
   const currentZoom = state.readerZoom || 100; // 75, 100, 125, 150
   const isTocOpen = state.isReaderTocOpen !== undefined ? state.isReaderTocOpen : true;
-  const isAiOpen = state.isReaderAiOpen !== undefined ? state.isReaderAiOpen : false;
 
   const themeClasses = {
     paper: 'bg-[#FAF9F6] text-[#1A1A1A]',
@@ -30,8 +37,22 @@ export function renderPDFReaderModal(doc, state) {
   };
 
   return `
-    <div id="pdf-reader-modal" class="fixed inset-0 z-50 flex flex-col bg-black/90 backdrop-blur-lg select-text transition-opacity duration-300">
+    <div id="pdf-reader-modal" class="fixed inset-0 z-50 flex flex-col bg-black/95 backdrop-blur-lg select-none transition-opacity duration-300" oncontextmenu="return false;">
       
+      <!-- Security Shield Overlay (Triggered on PrintScreen / Unfocus / Snip attempt) -->
+      <div id="reader-security-shield" class="fixed inset-0 z-[100] hidden bg-neutral-950/95 flex-col items-center justify-center p-8 text-center backdrop-blur-3xl transition-opacity duration-200">
+        <div class="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-500 mb-4 animate-pulse">
+          <i data-lucide="shield-alert" class="w-8 h-8"></i>
+        </div>
+        <h3 class="font-serif font-bold text-xl text-white mb-2">Protected Publication</h3>
+        <p class="text-xs text-neutral-400 max-w-sm font-sans mb-4">
+          Screenshots, screen recording, and unauthorized copying are disabled for MH VISION publications.
+        </p>
+        <span class="text-[11px] font-mono px-3 py-1 rounded bg-neutral-900 border border-neutral-800 text-neutral-400">
+          Click window to resume reading
+        </span>
+      </div>
+
       <!-- Top Reader Toolbar -->
       <header class="h-16 px-4 sm:px-6 flex items-center justify-between border-b transition-colors z-30 ${themeNavClasses[currentTheme]}">
         
@@ -41,9 +62,9 @@ export function renderPDFReaderModal(doc, state) {
             <i data-lucide="arrow-left" class="w-5 h-5"></i>
           </button>
           
-          <button id="reader-toc-toggle-btn" class="p-2 rounded-lg ${isTocOpen ? 'bg-black/10 dark:bg-white/10 font-bold' : 'hover:bg-black/10 dark:hover:bg-white/10'} transition-colors hidden sm:flex items-center space-x-1.5 text-xs font-mono" title="Table of Contents">
+          <button id="reader-toc-toggle-btn" class="p-2 rounded-lg ${isTocOpen ? 'bg-black/10 dark:bg-white/10 font-bold' : 'hover:bg-black/10 dark:hover:bg-white/10'} transition-colors hidden sm:flex items-center space-x-1.5 text-xs font-mono" title="Page Navigation">
             <i data-lucide="menu" class="w-4 h-4"></i>
-            <span>Contents</span>
+            <span>Pages</span>
           </button>
 
           <div class="h-5 w-px bg-neutral-300 dark:bg-neutral-700 hidden sm:block"></div>
@@ -63,10 +84,10 @@ export function renderPDFReaderModal(doc, state) {
           </button>
 
           <!-- Page Indicator -->
-          <div class="flex items-center space-x-1 text-xs font-mono px-2 py-1 rounded bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10">
+          <div class="flex items-center space-x-1 text-xs font-mono px-2.5 py-1 rounded-md bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10">
             <span class="font-bold">${currentPageNum}</span>
             <span class="opacity-50">/</span>
-            <span>${totalPages}</span>
+            <span id="reader-total-pages-display">${totalPages}</span>
           </div>
 
           <!-- Next Page -->
@@ -89,70 +110,64 @@ export function renderPDFReaderModal(doc, state) {
 
         </div>
 
-        <!-- Right: Reading Themes / AI Summary -->
-        <div class="flex items-center space-x-2">
+        <!-- Right: Reading Themes & DRM Security Badge -->
+        <div class="flex items-center space-x-3">
           
+          <!-- DRM Protection Pill -->
+          <div class="hidden sm:flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-mono">
+            <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+            <span>DRM Shield Active</span>
+          </div>
+
           <!-- Theme Picker Pills -->
-          <div class="hidden lg:flex items-center space-x-1 p-1 rounded-lg bg-black/5 dark:bg-white/5">
+          <div class="flex items-center space-x-1 p-1 rounded-lg bg-black/5 dark:bg-white/5">
             <button class="reader-theme-btn px-2 py-1 rounded text-[11px] font-mono ${currentTheme === 'paper' ? 'bg-white shadow-xs font-bold text-black' : 'opacity-60 hover:opacity-100'}" data-theme="paper">Paper</button>
             <button class="reader-theme-btn px-2 py-1 rounded text-[11px] font-mono ${currentTheme === 'sepia' ? 'bg-[#F6EEDF] shadow-xs font-bold text-[#382A1B]' : 'opacity-60 hover:opacity-100'}" data-theme="sepia">Sepia</button>
             <button class="reader-theme-btn px-2 py-1 rounded text-[11px] font-mono ${currentTheme === 'dark' ? 'bg-[#18181B] shadow-xs font-bold text-white' : 'opacity-60 hover:opacity-100'}" data-theme="dark">Dark</button>
             <button class="reader-theme-btn px-2 py-1 rounded text-[11px] font-mono ${currentTheme === 'oled' ? 'bg-black shadow-xs font-bold text-white' : 'opacity-60 hover:opacity-100'}" data-theme="oled">OLED</button>
           </div>
 
-          <!-- AI Assistant Toggle -->
-          <button id="reader-ai-toggle-btn" class="p-2 rounded-lg ${isAiOpen ? 'bg-amber-500 text-white font-bold' : 'hover:bg-black/10 dark:hover:bg-white/10 text-amber-500'} transition-colors flex items-center space-x-1 text-xs" title="AI Summary & Insights">
-            <i data-lucide="sparkles" class="w-4 h-4"></i>
-            <span class="hidden sm:inline">AI Summary</span>
-          </button>
         </div>
 
       </header>
 
-      <!-- Main Reader Body (Left TOC + Reading Canvas + Right AI Drawer) -->
-      <div class="flex-1 flex overflow-hidden relative">
+      <!-- Main Reader Body (Left TOC + Central Protected Reading Canvas) -->
+      <div id="reader-content-wrapper" class="flex-1 flex overflow-hidden relative select-none">
         
-        <!-- Left Table of Contents Drawer -->
+        <!-- Left Table of Contents / Thumbnails Drawer -->
         ${isTocOpen ? `
-          <aside class="w-64 md:w-72 flex-shrink-0 border-r flex flex-col p-4 overflow-y-auto z-20 ${themeNavClasses[currentTheme]}">
+          <aside class="w-64 md:w-72 flex-shrink-0 border-r flex flex-col p-4 overflow-y-auto z-20 select-none ${themeNavClasses[currentTheme]}">
             <div class="flex items-center justify-between pb-3 border-b border-black/10 dark:border-white/10 mb-4">
-              <span class="text-xs font-mono uppercase tracking-widest font-bold">Document Map</span>
-              <span class="text-[10px] font-mono opacity-60">${totalPages} Chapters</span>
-            </div>
-
-            <!-- TOC List -->
-            <div class="space-y-1.5">
-              ${(doc.tableOfContents || []).map(item => `
-                <button class="reader-toc-item w-full text-left p-2.5 rounded-lg text-xs transition-colors flex items-center justify-between ${
-                  currentPageNum === item.page 
-                    ? 'bg-amber-500/20 text-amber-900 dark:text-amber-300 font-bold border-l-2 border-amber-600' 
-                    : 'hover:bg-black/5 dark:hover:bg-white/5 opacity-80'
-                }" data-page="${item.page}">
-                  <span class="truncate pr-2">${item.title}</span>
-                  <span class="text-[10px] font-mono opacity-50 flex-shrink-0">p.${item.page}</span>
-                </button>
-              `).join('')}
+              <span class="text-xs font-mono uppercase tracking-widest font-bold">Document Navigation</span>
+              <span class="text-[10px] font-mono opacity-60">${totalPages} Pages</span>
             </div>
 
             <!-- Page Thumbnails Strip -->
-            <div class="mt-8 pt-4 border-t border-black/10 dark:border-white/10">
-              <span class="text-[10px] font-mono uppercase tracking-wider block mb-3 opacity-60">Visual Thumbnails</span>
+            <div class="space-y-2">
+              <span class="text-[10px] font-mono uppercase tracking-wider block mb-2 opacity-60">Visual Page Jumper</span>
               <div class="grid grid-cols-2 gap-2">
-                ${Array.from({ length: Math.min(totalPages, 12) }).map((_, idx) => {
+                ${Array.from({ length: Math.min(totalPages, 50) }).map((_, idx) => {
                   const pNum = idx + 1;
+                  const thumbUrl = isCloudinaryPdf ? getCloudinaryPageUrl(publicId, pNum) : '';
                   return `
-                    <button class="reader-thumb-btn p-2 rounded border text-left aspect-[3/4] flex flex-col justify-between transition-all ${
+                    <button class="reader-thumb-btn p-1.5 rounded-lg border text-left aspect-[3/4] flex flex-col justify-between transition-all overflow-hidden relative group select-none ${
                       currentPageNum === pNum 
-                        ? 'border-amber-600 ring-2 ring-amber-600/30 font-bold bg-amber-500/10' 
-                        : 'border-black/10 dark:border-white/10 hover:border-black/30 dark:hover:border-white/30 opacity-70'
+                        ? 'border-amber-600 ring-2 ring-amber-600/40 font-bold bg-amber-500/10 text-amber-900 dark:text-amber-300' 
+                        : 'border-black/10 dark:border-white/10 hover:border-black/30 dark:hover:border-white/30 opacity-80'
                     }" data-page="${pNum}">
-                      <span class="text-[9px] font-mono">P.${pNum}</span>
-                      <div class="space-y-0.5 opacity-40">
-                        <div class="h-1 bg-current rounded w-full"></div>
-                        <div class="h-1 bg-current rounded w-4/5"></div>
-                        <div class="h-1 bg-current rounded w-3/5"></div>
-                      </div>
-                      <span class="text-[8px] font-mono opacity-50 truncate">Ch. ${pNum}</span>
+                      ${thumbUrl ? `
+                        <img src="${thumbUrl}" alt="Page ${pNum}" draggable="false" class="absolute inset-0 w-full h-full object-cover opacity-90 group-hover:scale-105 transition-transform pointer-events-none" />
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none"></div>
+                        <span class="relative z-10 text-[9px] font-mono font-bold text-white bg-black/60 px-1 py-0.5 rounded">P.${pNum}</span>
+                      ` : `
+                        <span class="text-[9px] font-mono font-bold">Page ${pNum}</span>
+                        <div class="space-y-0.5 opacity-40">
+                          <div class="h-1 bg-current rounded w-full"></div>
+                          <div class="h-1 bg-current rounded w-4/5"></div>
+                          <div class="h-1 bg-current rounded w-3/5"></div>
+                        </div>
+                        <span class="text-[8px] font-mono opacity-50 truncate">Page ${pNum}</span>
+                      `}
                     </button>
                   `;
                 }).join('')}
@@ -162,110 +177,103 @@ export function renderPDFReaderModal(doc, state) {
           </aside>
         ` : ''}
 
-        <!-- Central High-Res Reading Canvas -->
-        <main class="flex-1 overflow-y-auto p-4 sm:p-8 md:p-12 flex justify-center items-start bg-neutral-900/60 custom-reader-canvas">
+        <!-- Central High-Res Protected Reading Canvas -->
+        <main class="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 flex flex-col items-center justify-start bg-neutral-900/80 custom-reader-canvas select-none relative">
           
-          <!-- Virtual Page Sheet with Zoom -->
-          <article id="reader-page-sheet" 
-                   class="relative w-full max-w-3xl min-h-[900px] p-8 sm:p-14 md:p-16 rounded-xl shadow-2xl transition-all duration-200 ${themeClasses[currentTheme]}"
-                   style="transform: scale(${currentZoom / 100}); transform-origin: top center;">
-            
-            <!-- Top Running Header -->
-            <div class="flex justify-between items-center text-[11px] font-mono uppercase tracking-widest pb-6 mb-8 border-b border-black/10 dark:border-white/10 opacity-60">
-              <span>MH VISION DIGITAL PUBLICATIONS</span>
-              <span>${doc.edition || 'MALAYALAM KNOWLEDGE HUB'}</span>
-            </div>
+          ${isCloudinaryPdf ? `
+            <!-- HIGH-RES CLOUDINARY VECTOR PAGE VIEWER (Protected) -->
+            <div class="relative flex flex-col items-center my-auto transition-transform duration-200 select-none" style="transform: scale(${currentZoom / 100}); transform-origin: top center;">
+              
+              <!-- Container with Anti-Piracy Watermark & Protection Layer -->
+              <div class="relative max-w-3xl min-h-[600px] flex items-center justify-center select-none">
+                
+                <!-- Transparent Click-Jack / Save Prevention Overlay -->
+                <div class="absolute inset-0 z-20 bg-transparent select-none cursor-default" oncontextmenu="return false;"></div>
 
-            <!-- Chapter & Title -->
-            <div class="text-center mb-10">
-              <span class="text-xs font-mono uppercase tracking-[0.3em] opacity-60 block mb-2">
-                ${currentPageData.chapter || `SECTION ${currentPageNum}`}
-              </span>
-              <h1 class="text-2xl sm:text-3xl md:text-4xl font-serif font-bold tracking-tight">
-                ${currentPageData.title}
-              </h1>
-              <div class="w-12 h-0.5 bg-amber-600 dark:bg-amber-400 mx-auto mt-4 opacity-70"></div>
-            </div>
-
-            <!-- Cloudinary Cloud Stream Indicator (if real PDF attached) -->
-            ${doc.pdfUrl ? `
-              <div class="mb-6 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between text-xs font-mono">
-                <div class="flex items-center space-x-2 text-amber-800 dark:text-amber-300">
-                  <i data-lucide="cloud-check" class="w-4 h-4 text-emerald-500"></i>
-                  <span>Cloudinary CDN Stream Verified</span>
+                <!-- Forensic Security Watermark Overlay -->
+                <div class="absolute inset-0 z-10 pointer-events-none overflow-hidden select-none opacity-[0.07] flex flex-wrap items-center justify-around rotate-[-25deg] gap-12 p-8 font-mono text-xs font-black uppercase text-black dark:text-white">
+                  <span>MH VISION · LICENSED COPY</span>
+                  <span>CONFIDENTIAL · DO NOT LEAK</span>
+                  <span>MH VISION · OFFICIAL PUBLICATION</span>
+                  <span>VERIFIED SCHOLAR ACCESS</span>
                 </div>
-                <span class="text-[10px] opacity-70">WASM Secure Stream</span>
+
+                <!-- Real Page Image View -->
+                <img 
+                  id="reader-page-image"
+                  src="${activePageImageUrl}" 
+                  alt="Page ${currentPageNum} of ${doc.title}"
+                  draggable="false"
+                  class="w-full max-w-3xl rounded-xl shadow-2xl bg-white border border-neutral-700/50 select-none pointer-events-none"
+                  onload="const sp = document.getElementById('page-loading-spinner'); if (sp) sp.style.display = 'none';"
+                  onerror="this.classList.add('hidden'); const err = document.getElementById('page-load-error'); if (err) err.classList.remove('hidden');"
+                />
+
+                <!-- Loading Spinner -->
+                <div id="page-loading-spinner" class="absolute inset-0 flex flex-col items-center justify-center bg-neutral-900/80 rounded-xl space-y-3 p-8 text-white z-0">
+                  <div class="w-10 h-10 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
+                  <p class="text-xs font-mono text-amber-400">Loading Page ${currentPageNum} of ${totalPages}...</p>
+                </div>
+
+                <!-- Error Fallback (if any) -->
+                <div id="page-load-error" class="hidden p-8 rounded-2xl bg-[#18181B] border border-neutral-700 text-center space-y-3 max-w-md text-white z-30">
+                  <div class="w-12 h-12 mx-auto rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                    <i data-lucide="file-text" class="w-6 h-6"></i>
+                  </div>
+                  <h4 class="font-serif font-bold text-base">Publication Ready</h4>
+                  <p class="text-xs text-neutral-400">
+                    Document is securely synchronized with MH VISION storage.
+                  </p>
+                </div>
               </div>
-            ` : ''}
 
-            <!-- Rendered Page Content -->
-            <div class="reading-prose space-y-6 font-serif leading-relaxed text-base sm:text-lg">
-              ${currentPageData.content}
+              <!-- Running Footer -->
+              <div class="mt-4 flex items-center justify-between w-full max-w-3xl text-xs font-mono text-neutral-400 px-2 select-none">
+                <span>${doc.title}</span>
+                <span>Page ${currentPageNum} of ${totalPages} · MH VISION DRM Protected</span>
+              </div>
+
             </div>
+          ` : `
+            <!-- Fallback Typography Sheet -->
+            <article id="reader-page-sheet" 
+                     class="relative w-full max-w-3xl min-h-[900px] p-8 sm:p-14 md:p-16 rounded-xl shadow-2xl transition-all duration-200 select-none ${themeClasses[currentTheme]}"
+                     style="transform: scale(${currentZoom / 100}); transform-origin: top center;">
+              
+              <!-- Watermark -->
+              <div class="absolute inset-0 z-10 pointer-events-none overflow-hidden select-none opacity-[0.05] flex flex-wrap items-center justify-around rotate-[-25deg] gap-12 p-8 font-mono text-xs font-black uppercase">
+                <span>MH VISION · LICENSED COPY</span>
+                <span>CONFIDENTIAL</span>
+              </div>
 
-            <!-- Running Footer & Page Number -->
-            <div class="mt-16 pt-8 border-t border-black/10 dark:border-white/10 flex justify-between items-center text-xs font-mono opacity-50">
-              <span>${doc.title}</span>
-              <span>Page ${currentPageNum} of ${totalPages}</span>
-            </div>
+              <div class="flex justify-between items-center text-[11px] font-mono uppercase tracking-widest pb-6 mb-8 border-b border-black/10 dark:border-white/10 opacity-60">
+                <span>MH VISION DIGITAL PUBLICATIONS</span>
+                <span>${doc.edition || 'MALAYALAM KNOWLEDGE HUB'}</span>
+              </div>
 
-          </article>
+              <div class="text-center mb-10">
+                <span class="text-xs font-mono uppercase tracking-[0.3em] opacity-60 block mb-2">
+                  ${currentPageData.chapter || `SECTION ${currentPageNum}`}
+                </span>
+                <h1 class="text-2xl sm:text-3xl md:text-4xl font-serif font-bold tracking-tight">
+                  ${currentPageData.title}
+                </h1>
+                <div class="w-12 h-0.5 bg-amber-600 dark:bg-amber-400 mx-auto mt-4 opacity-70"></div>
+              </div>
+
+              <div class="reading-prose space-y-6 font-serif leading-relaxed text-base sm:text-lg select-none">
+                ${currentPageData.content}
+              </div>
+
+              <div class="mt-16 pt-8 border-t border-black/10 dark:border-white/10 flex justify-between items-center text-xs font-mono opacity-50">
+                <span>${doc.title}</span>
+                <span>Page ${currentPageNum} of ${totalPages} · DRM Protected</span>
+              </div>
+
+            </article>
+          `}
 
         </main>
-
-        <!-- Right AI Summary & Notes Drawer -->
-        ${isAiOpen ? `
-          <aside class="w-72 md:w-80 flex-shrink-0 border-l flex flex-col p-5 overflow-y-auto z-20 ${themeNavClasses[currentTheme]}">
-            
-            <div class="flex items-center justify-between pb-3 border-b border-black/10 dark:border-white/10 mb-4">
-              <div class="flex items-center space-x-1.5 text-xs font-mono font-bold text-amber-500">
-                <i data-lucide="sparkles" class="w-4 h-4"></i>
-                <span class="uppercase">AI Synthesis & Notes</span>
-              </div>
-              <button id="reader-close-ai-btn" class="p-1 rounded hover:bg-black/10 dark:hover:bg-white/10">
-                <i data-lucide="x" class="w-4 h-4"></i>
-              </button>
-            </div>
-
-            <!-- Key Takeaways for this page -->
-            <div class="space-y-4">
-              
-              <div class="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30">
-                <h4 class="text-xs font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-300 mb-2">
-                  Key Insights (Page ${currentPageNum})
-                </h4>
-                <p class="text-xs font-sans leading-relaxed">
-                  ${doc.highlights ? doc.highlights[currentPageNum - 1] || doc.highlights[0] : 'Comprehensive educational insights curated for Malayalam Knowledge Hub learners.'}
-                </p>
-              </div>
-
-              <!-- Key Concepts -->
-              <div>
-                <h5 class="text-[11px] font-mono uppercase tracking-wider opacity-60 mb-2">Core Topics</h5>
-                <div class="flex flex-wrap gap-1.5">
-                  <span class="px-2 py-0.5 rounded bg-black/5 dark:bg-white/5 text-[10px] font-mono">#MHVision</span>
-                  <span class="px-2 py-0.5 rounded bg-black/5 dark:bg-white/5 text-[10px] font-mono">#KnowledgeHub</span>
-                  <span class="px-2 py-0.5 rounded bg-black/5 dark:bg-white/5 text-[10px] font-mono">#KeralaEducation</span>
-                </div>
-              </div>
-
-              <!-- Scholar Notes Scratchpad (Autosaved) -->
-              <div class="pt-4 border-t border-black/10 dark:border-white/10">
-                <div class="flex items-center justify-between mb-2">
-                  <span class="text-xs font-mono font-bold uppercase">Scholar Notes</span>
-                  <span id="notes-save-status" class="text-[10px] font-mono text-emerald-500">Autosaved</span>
-                </div>
-                <textarea 
-                  id="reader-notes-input" 
-                  rows="6" 
-                  placeholder="Record your notes, citations, or formulas here..." 
-                  class="w-full p-3 rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 text-xs font-sans focus:outline-none focus:ring-1 focus:ring-amber-500 resize-none">${state.docNotes && state.docNotes[doc.id] ? state.docNotes[doc.id] : ''}</textarea>
-              </div>
-
-            </div>
-
-          </aside>
-        ` : ''}
 
       </div>
 
