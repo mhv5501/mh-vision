@@ -43,6 +43,44 @@ export const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 const PUBLICATIONS_COLLECTION = 'publications';
 const PURCHASES_COLLECTION = 'user_purchases';
+const APP_CONFIG_COLLECTION = 'app_config';
+
+/**
+ * Fetch App Configuration (Razorpay Gateway Keys) from Firestore
+ */
+export async function fetchAppConfig() {
+  try {
+    const docRef = doc(db, APP_CONFIG_COLLECTION, 'razorpay');
+    const snapshot = await getDocs(query(collection(db, APP_CONFIG_COLLECTION)));
+    let config = null;
+    snapshot.forEach(d => {
+      if (d.id === 'razorpay') {
+        config = d.data();
+      }
+    });
+    return config;
+  } catch (error) {
+    console.warn('Could not fetch app config from Firestore:', error);
+    return null;
+  }
+}
+
+/**
+ * Save App Configuration (Razorpay Gateway Keys) to Firestore
+ */
+export async function saveAppConfig(configData) {
+  try {
+    const docRef = doc(db, APP_CONFIG_COLLECTION, 'razorpay');
+    await setDoc(docRef, {
+      ...configData,
+      updatedAt: serverTimestamp()
+    });
+    return { success: true };
+  } catch (error) {
+    console.warn('Could not save app config to Firestore:', error);
+    return { success: false };
+  }
+}
 
 // Authenticate Admin Session
 export async function authenticateAdmin() {

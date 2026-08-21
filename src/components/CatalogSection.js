@@ -22,7 +22,7 @@ export function renderCatalogSection(state) {
 
         <!-- Document Cards Grid or Empty State -->
         ${docs.length > 0 ? `
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
+          <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6 md:gap-8">
             ${docs.map(doc => {
               const isUnlocked = state.unlockedDocs.includes(doc.id);
               return renderDocumentCard(doc, isUnlocked);

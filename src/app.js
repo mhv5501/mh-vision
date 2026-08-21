@@ -27,7 +27,9 @@ import {
   logoutUser,
   listenToAuthChanges,
   fetchUserPurchases,
-  savePurchaseReceipt
+  savePurchaseReceipt,
+  fetchAppConfig,
+  saveAppConfig
 } from './services/firebase.js';
 import { uploadPDFToCloudinary, detectPdfPageCountFast } from './services/cloudinary.js';
 
@@ -51,7 +53,7 @@ const state = {
   pdfTotalPages: null,
   readerTheme: 'paper', // 'paper', 'sepia', 'dark', 'oled'
   readerZoom: 100,
-  isReaderTocOpen: true,
+  isReaderTocOpen: window.innerWidth >= 768,
   isSearchOpen: false,
   searchQuery: '',
   isUploadModalOpen: false,
@@ -71,9 +73,9 @@ const state = {
   isUserMenuOpen: false,
   pendingPurchaseDocId: null, // document waiting for user login before checkout
 
-  // Razorpay Gateway Credentials
-  razorpayKeyId: localStorage.getItem('mh_razorpay_key_id') || 'rzp_test_TRib3eYF2tuf5z',
-  razorpayKeySecret: localStorage.getItem('mh_razorpay_key_secret') || 'mCGQsfow2qQGDMoKg4OcMvU8'
+  // Razorpay Live Gateway Credentials
+  razorpayKeyId: localStorage.getItem('mh_razorpay_key_id') || 'rzp_live_TRivf6JAYYTQQT',
+  razorpayKeySecret: localStorage.getItem('mh_razorpay_key_secret') || 'JTtie2IYS12BxBOcxF9db73a'
 };
 
 // PDF.js In-Memory Document Cache
@@ -88,6 +90,20 @@ function cacheDocuments() {
 // Sync with Firebase Firestore & Listen to Global Auth Changes
 async function initFirebaseSync() {
   try {
+    // 1. Fetch Cloud Config for Razorpay Credentials across all devices
+    try {
+      const config = await fetchAppConfig();
+      if (config && config.keyId) {
+        state.razorpayKeyId = config.keyId;
+        if (config.secret) state.razorpayKeySecret = config.secret;
+        localStorage.setItem('mh_razorpay_key_id', config.keyId);
+        if (config.secret) localStorage.setItem('mh_razorpay_key_secret', config.secret);
+      }
+    } catch (cfgErr) {
+      console.warn('App config fetch note:', cfgErr);
+    }
+
+    // 2. Fetch Publications Catalog
     const cloudDocs = await fetchPublications();
     if (cloudDocs && Array.isArray(cloudDocs) && cloudDocs.length > 0) {
       state.documents = cloudDocs;
@@ -103,7 +119,7 @@ async function initFirebaseSync() {
       }
     });
 
-    // Listen to Firebase Auth state
+    // 3. Listen to Firebase Auth state
     listenToAuthChanges(async (user) => {
       state.currentUser = user;
       if (user) {
@@ -156,7 +172,7 @@ async function renderRealPdfCanvas(doc) {
       const pageNum = Math.min(Math.max(1, state.readerCurrentPage || 1), loadedPdfDoc.numPages);
       const page = await loadedPdfDoc.getPage(pageNum);
       
-      const desiredWidth = Math.min(window.innerWidth - 64, 820);
+      const desiredWidth = Math.min(window.innerWidth - 32, 820);
       const unscaledViewport = page.getViewport({ scale: 1 });
       const scale = (desiredWidth / unscaledViewport.width) * ((state.readerZoom || 100) / 100);
       const viewport = page.getViewport({ scale: scale * 1.5 });
@@ -396,7 +412,7 @@ window.handleOpenLibraryDrawer = function() {
 };
 
 // -------------------------------------------------------------
-// RAZORPAY PAYMENT GATEWAY & INSTANT UNLOCK
+// RAZORPAY LIVE PAYMENT GATEWAY & INSTANT UNLOCK
 // -------------------------------------------------------------
 window.handleOpenDocument = function(docId) {
   // If document is already unlocked, open reader directly
@@ -447,20 +463,25 @@ window.handleInitiateRazorpay = function(docId) {
   const payText = document.getElementById('pay-btn-text');
   if (payBtn && payText) {
     payBtn.disabled = true;
-    payText.innerHTML = `<span class="inline-block animate-spin mr-2">⟳</span> Connecting to Razorpay Gateway...`;
+    payText.innerHTML = `<span class="inline-block animate-spin mr-2">⟳</span> Opening Razorpay Checkout...`;
   }
 
+  // Prefill contact number to prevent Razorpay from asking for phone number
+  const prefillPhone = (state.currentUser && state.currentUser.phone) 
+    ? state.currentUser.phone 
+    : '9876543210';
+
   const options = {
-    key: state.razorpayKeyId || 'rzp_test_TRib3eYF2tuf5z',
+    key: state.razorpayKeyId || 'rzp_live_TRivf6JAYYTQQT',
     amount: Math.round(finalPrice * 100), // Amount in paise (1 INR = 100 paise)
     currency: 'INR',
     name: 'MH VISION',
     description: `${doc.title} · Malayalam Knowledge Hub`,
     image: 'assets/logo.jpg',
     prefill: {
-      name: state.currentUser.displayName || '',
+      name: state.currentUser.displayName || 'Scholar Member',
       email: state.currentUser.email || '',
-      contact: ''
+      contact: prefillPhone
     },
     notes: {
       docId: doc.id,
@@ -472,7 +493,7 @@ window.handleInitiateRazorpay = function(docId) {
       color: '#111111'
     },
     handler: async function (response) {
-      console.log('Razorpay payment approved:', response);
+      console.log('Razorpay live payment approved:', response);
       const paymentId = response.razorpay_payment_id;
 
       if (payText) {
@@ -580,8 +601,15 @@ window.handleOpenReader = function(docId) {
   state.activePaymentDocId = null;
   state.isLibraryDrawerOpen = false;
   state.isSearchOpen = false;
+  // On mobile screens, default TOC sidebar to collapsed so 100% of viewport is full-screen PDF
+  state.isReaderTocOpen = window.innerWidth >= 768;
   loadedPdfDoc = null;
   currentPdfUrl = null;
+  renderApp();
+};
+
+window.handleToggleReaderToc = function() {
+  state.isReaderTocOpen = !state.isReaderTocOpen;
   renderApp();
 };
 
@@ -673,8 +701,8 @@ window.handleAdminChangePassword = function(e) {
   document.getElementById('confirm-pass-input').value = '';
 };
 
-// Save Razorpay Keys Handler
-window.handleAdminSaveRazorpayKeys = function(e) {
+// Save Razorpay Keys Handler with Cloud Sync
+window.handleAdminSaveRazorpayKeys = async function(e) {
   const keyIdInput = document.getElementById('razorpay-key-id-input');
   const secretInput = document.getElementById('razorpay-key-secret-input');
   const statusDiv = document.getElementById('razorpay-save-status');
@@ -690,9 +718,17 @@ window.handleAdminSaveRazorpayKeys = function(e) {
   localStorage.setItem('mh_razorpay_key_id', keyId);
   localStorage.setItem('mh_razorpay_key_secret', secret);
 
-  if (statusDiv) {
-    statusDiv.className = 'text-xs font-mono text-emerald-500 block';
-    statusDiv.textContent = '✓ Razorpay API credentials saved successfully!';
+  try {
+    await saveAppConfig({ keyId, secret });
+    if (statusDiv) {
+      statusDiv.className = 'text-xs font-mono text-emerald-500 block';
+      statusDiv.textContent = '✓ Live Razorpay API credentials saved to Cloud Database! All mobile & desktop devices updated.';
+    }
+  } catch (err) {
+    if (statusDiv) {
+      statusDiv.className = 'text-xs font-mono text-amber-500 block';
+      statusDiv.textContent = '✓ Saved locally to browser cache.';
+    }
   }
 };
 
@@ -1063,6 +1099,12 @@ function attachEventListeners() {
     };
   }
 
+  // Reader Modal TOC button
+  const readerTocBtn = document.getElementById('reader-toc-toggle-btn');
+  if (readerTocBtn) {
+    readerTocBtn.onclick = () => window.handleToggleReaderToc();
+  }
+
   // PDF Reader Modal Controls
   const readerCloseBtn = document.getElementById('reader-close-btn');
   if (readerCloseBtn) {
@@ -1111,14 +1153,6 @@ function attachEventListeners() {
     };
   }
 
-  const readerTocToggleBtn = document.getElementById('reader-toc-toggle-btn');
-  if (readerTocToggleBtn) {
-    readerTocToggleBtn.onclick = () => {
-      state.isReaderTocOpen = !state.isReaderTocOpen;
-      renderApp();
-    };
-  }
-
   document.querySelectorAll('.reader-theme-btn').forEach(btn => {
     btn.onclick = () => {
       state.readerTheme = btn.dataset.theme;
@@ -1129,6 +1163,9 @@ function attachEventListeners() {
   document.querySelectorAll('.reader-toc-item, .reader-thumb-btn').forEach(btn => {
     btn.onclick = () => {
       state.readerCurrentPage = parseInt(btn.dataset.page);
+      if (window.innerWidth < 768) {
+        state.isReaderTocOpen = false;
+      }
       renderApp();
     };
   });

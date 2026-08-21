@@ -20,7 +20,7 @@ export function renderPDFReaderModal(doc, state) {
 
   const currentTheme = state.readerTheme || 'paper'; // paper, sepia, dark, oled
   const currentZoom = state.readerZoom || 100; // 75, 100, 125, 150
-  const isTocOpen = state.isReaderTocOpen !== undefined ? state.isReaderTocOpen : true;
+  const isTocOpen = state.isReaderTocOpen !== undefined ? state.isReaderTocOpen : false;
 
   const themeClasses = {
     paper: 'bg-[#FAF9F6] text-[#1A1A1A]',
@@ -30,10 +30,10 @@ export function renderPDFReaderModal(doc, state) {
   };
 
   const themeNavClasses = {
-    paper: 'bg-white/90 border-neutral-200 text-neutral-800',
-    sepia: 'bg-[#EFE6D5]/90 border-[#D8C7B0] text-[#382A1B]',
-    dark: 'bg-[#202024]/90 border-neutral-800 text-neutral-200',
-    oled: 'bg-[#0E0E10]/90 border-neutral-900 text-neutral-200',
+    paper: 'bg-white/95 border-neutral-200 text-neutral-800',
+    sepia: 'bg-[#EFE6D5]/95 border-[#D8C7B0] text-[#382A1B]',
+    dark: 'bg-[#202024]/95 border-neutral-800 text-neutral-200',
+    oled: 'bg-[#0E0E10]/95 border-neutral-900 text-neutral-200',
   };
 
   return `
@@ -54,44 +54,44 @@ export function renderPDFReaderModal(doc, state) {
       </div>
 
       <!-- Top Reader Toolbar -->
-      <header class="h-16 px-4 sm:px-6 flex items-center justify-between border-b transition-colors z-30 ${themeNavClasses[currentTheme]}">
+      <header class="h-16 px-3 sm:px-6 flex items-center justify-between border-b transition-colors z-30 ${themeNavClasses[currentTheme]}">
         
         <!-- Left: Back / Title / TOC Toggle -->
-        <div class="flex items-center space-x-3">
-          <button id="reader-close-btn" class="p-2 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition-colors" title="Close Reader">
+        <div class="flex items-center space-x-2 sm:space-x-3 min-w-0">
+          <button id="reader-close-btn" class="p-2 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition-colors flex-shrink-0" title="Close Reader">
             <i data-lucide="arrow-left" class="w-5 h-5"></i>
           </button>
           
-          <button id="reader-toc-toggle-btn" class="p-2 rounded-lg ${isTocOpen ? 'bg-black/10 dark:bg-white/10 font-bold' : 'hover:bg-black/10 dark:hover:bg-white/10'} transition-colors hidden sm:flex items-center space-x-1.5 text-xs font-mono" title="Page Navigation">
+          <button id="reader-toc-toggle-btn" class="p-1.5 sm:p-2 rounded-lg ${isTocOpen ? 'bg-black/10 dark:bg-white/10 font-bold' : 'hover:bg-black/10 dark:hover:bg-white/10'} transition-colors flex items-center space-x-1.5 text-xs font-mono flex-shrink-0" title="Page Navigation">
             <i data-lucide="menu" class="w-4 h-4"></i>
-            <span>Pages</span>
+            <span class="hidden xs:inline">Pages</span>
           </button>
 
           <div class="h-5 w-px bg-neutral-300 dark:bg-neutral-700 hidden sm:block"></div>
 
-          <div class="max-w-xs sm:max-w-md truncate">
-            <h3 class="font-serif font-bold text-sm truncate leading-tight">${doc.title}</h3>
-            <p class="text-[11px] font-mono opacity-60 truncate">${doc.edition || 'Official Edition'} · ${doc.author}</p>
+          <div class="max-w-[120px] xs:max-w-[180px] sm:max-w-md truncate">
+            <h3 class="font-serif font-bold text-xs sm:text-sm truncate leading-tight">${doc.title}</h3>
+            <p class="text-[10px] sm:text-[11px] font-mono opacity-60 truncate">${doc.author}</p>
           </div>
         </div>
 
         <!-- Center: Page Nav & Zoom Controls -->
-        <div class="flex items-center space-x-2 sm:space-x-3">
+        <div class="flex items-center space-x-1 sm:space-x-3">
           
           <!-- Prev Page -->
-          <button id="reader-prev-page-btn" ${currentPageNum <= 1 ? 'disabled' : ''} class="p-1.5 rounded-md hover:bg-black/10 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors" title="Previous Page (←)">
+          <button id="reader-prev-page-btn" ${currentPageNum <= 1 ? 'disabled' : ''} class="p-1 sm:p-1.5 rounded-md hover:bg-black/10 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors" title="Previous Page (←)">
             <i data-lucide="chevron-left" class="w-4 h-4"></i>
           </button>
 
           <!-- Page Indicator -->
-          <div class="flex items-center space-x-1 text-xs font-mono px-2.5 py-1 rounded-md bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10">
+          <div class="flex items-center space-x-1 text-[11px] sm:text-xs font-mono px-2 py-0.5 sm:py-1 rounded-md bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10">
             <span class="font-bold">${currentPageNum}</span>
             <span class="opacity-50">/</span>
             <span id="reader-total-pages-display">${totalPages}</span>
           </div>
 
           <!-- Next Page -->
-          <button id="reader-next-page-btn" ${currentPageNum >= totalPages ? 'disabled' : ''} class="p-1.5 rounded-md hover:bg-black/10 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors" title="Next Page (→)">
+          <button id="reader-next-page-btn" ${currentPageNum >= totalPages ? 'disabled' : ''} class="p-1 sm:p-1.5 rounded-md hover:bg-black/10 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors" title="Next Page (→)">
             <i data-lucide="chevron-right" class="w-4 h-4"></i>
           </button>
 
@@ -111,20 +111,14 @@ export function renderPDFReaderModal(doc, state) {
         </div>
 
         <!-- Right: Reading Themes & DRM Security Badge -->
-        <div class="flex items-center space-x-3">
+        <div class="flex items-center space-x-2 sm:space-x-3">
           
-          <!-- DRM Protection Pill -->
-          <div class="hidden sm:flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-mono">
-            <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
-            <span>DRM Shield Active</span>
-          </div>
-
           <!-- Theme Picker Pills -->
-          <div class="flex items-center space-x-1 p-1 rounded-lg bg-black/5 dark:bg-white/5">
-            <button class="reader-theme-btn px-2 py-1 rounded text-[11px] font-mono ${currentTheme === 'paper' ? 'bg-white shadow-xs font-bold text-black' : 'opacity-60 hover:opacity-100'}" data-theme="paper">Paper</button>
-            <button class="reader-theme-btn px-2 py-1 rounded text-[11px] font-mono ${currentTheme === 'sepia' ? 'bg-[#F6EEDF] shadow-xs font-bold text-[#382A1B]' : 'opacity-60 hover:opacity-100'}" data-theme="sepia">Sepia</button>
-            <button class="reader-theme-btn px-2 py-1 rounded text-[11px] font-mono ${currentTheme === 'dark' ? 'bg-[#18181B] shadow-xs font-bold text-white' : 'opacity-60 hover:opacity-100'}" data-theme="dark">Dark</button>
-            <button class="reader-theme-btn px-2 py-1 rounded text-[11px] font-mono ${currentTheme === 'oled' ? 'bg-black shadow-xs font-bold text-white' : 'opacity-60 hover:opacity-100'}" data-theme="oled">OLED</button>
+          <div class="flex items-center space-x-0.5 sm:space-x-1 p-0.5 sm:p-1 rounded-lg bg-black/5 dark:bg-white/5 text-[10px] sm:text-[11px]">
+            <button class="reader-theme-btn px-1.5 py-0.5 sm:px-2 sm:py-1 rounded font-mono ${currentTheme === 'paper' ? 'bg-white shadow-xs font-bold text-black' : 'opacity-60 hover:opacity-100'}" data-theme="paper">Paper</button>
+            <button class="reader-theme-btn px-1.5 py-0.5 sm:px-2 sm:py-1 rounded font-mono ${currentTheme === 'sepia' ? 'bg-[#F6EEDF] shadow-xs font-bold text-[#382A1B]' : 'opacity-60 hover:opacity-100'}" data-theme="sepia">Sepia</button>
+            <button class="reader-theme-btn px-1.5 py-0.5 sm:px-2 sm:py-1 rounded font-mono ${currentTheme === 'dark' ? 'bg-[#18181B] shadow-xs font-bold text-white' : 'opacity-60 hover:opacity-100'}" data-theme="dark">Dark</button>
+            <button class="reader-theme-btn px-1.5 py-0.5 sm:px-2 sm:py-1 rounded font-mono ${currentTheme === 'oled' ? 'bg-black shadow-xs font-bold text-white' : 'opacity-60 hover:opacity-100'}" data-theme="oled">OLED</button>
           </div>
 
         </div>
@@ -134,16 +128,23 @@ export function renderPDFReaderModal(doc, state) {
       <!-- Main Reader Body (Left TOC + Central Protected Reading Canvas) -->
       <div id="reader-content-wrapper" class="flex-1 flex overflow-hidden relative select-none">
         
+        <!-- Mobile TOC Backdrop Overlay -->
+        ${isTocOpen ? `
+          <div id="reader-toc-backdrop" class="fixed inset-0 z-30 bg-black/60 md:hidden backdrop-blur-xs"></div>
+        ` : ''}
+
         <!-- Left Table of Contents / Thumbnails Drawer -->
         ${isTocOpen ? `
-          <aside class="w-64 md:w-72 flex-shrink-0 border-r flex flex-col p-4 overflow-y-auto z-20 select-none ${themeNavClasses[currentTheme]}">
+          <aside class="fixed md:static inset-y-0 left-0 z-40 w-72 flex-shrink-0 border-r flex flex-col p-4 overflow-y-auto select-none shadow-2xl md:shadow-none transition-transform duration-300 ${themeNavClasses[currentTheme]}">
             <div class="flex items-center justify-between pb-3 border-b border-black/10 dark:border-white/10 mb-4">
               <span class="text-xs font-mono uppercase tracking-widest font-bold">Document Navigation</span>
-              <span class="text-[10px] font-mono opacity-60">${totalPages} Pages</span>
+              <button onclick="window.handleToggleReaderToc()" class="p-1 rounded-lg text-neutral-400 hover:text-neutral-900 dark:hover:text-white md:hidden">
+                <i data-lucide="x" class="w-4 h-4"></i>
+              </button>
             </div>
 
             <!-- Page Thumbnails Strip -->
-            <div class="space-y-2">
+            <div class="space-y-2 flex-1 overflow-y-auto">
               <span class="text-[10px] font-mono uppercase tracking-wider block mb-2 opacity-60">Visual Page Jumper</span>
               <div class="grid grid-cols-2 gap-2">
                 ${Array.from({ length: Math.min(totalPages, 50) }).map((_, idx) => {
@@ -178,20 +179,20 @@ export function renderPDFReaderModal(doc, state) {
         ` : ''}
 
         <!-- Central High-Res Protected Reading Canvas -->
-        <main class="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 flex flex-col items-center justify-start bg-neutral-900/80 custom-reader-canvas select-none relative">
+        <main id="pdf-canvas-container" class="flex-1 w-full h-full overflow-y-auto p-2 sm:p-6 md:p-8 flex flex-col items-center justify-start bg-neutral-900/80 custom-reader-canvas select-none relative">
           
           ${isCloudinaryPdf ? `
             <!-- HIGH-RES CLOUDINARY VECTOR PAGE VIEWER (Protected) -->
-            <div class="relative flex flex-col items-center my-auto transition-transform duration-200 select-none" style="transform: scale(${currentZoom / 100}); transform-origin: top center;">
+            <div class="relative flex flex-col items-center w-full max-w-3xl my-auto transition-transform duration-200 select-none" style="transform: scale(${currentZoom / 100}); transform-origin: top center;">
               
               <!-- Container with Anti-Piracy Watermark & Protection Layer -->
-              <div class="relative max-w-3xl min-h-[600px] flex items-center justify-center select-none">
+              <div class="relative w-full max-w-3xl min-h-[450px] sm:min-h-[600px] flex items-center justify-center select-none">
                 
                 <!-- Transparent Click-Jack / Save Prevention Overlay -->
                 <div class="absolute inset-0 z-20 bg-transparent select-none cursor-default" oncontextmenu="return false;"></div>
 
                 <!-- Forensic Security Watermark Overlay -->
-                <div class="absolute inset-0 z-10 pointer-events-none overflow-hidden select-none opacity-[0.07] flex flex-wrap items-center justify-around rotate-[-25deg] gap-12 p-8 font-mono text-xs font-black uppercase text-black dark:text-white">
+                <div class="absolute inset-0 z-10 pointer-events-none overflow-hidden select-none opacity-[0.07] flex flex-wrap items-center justify-around rotate-[-25deg] gap-8 p-4 sm:p-8 font-mono text-[10px] sm:text-xs font-black uppercase text-black dark:text-white">
                   <span>MH VISION · LICENSED COPY</span>
                   <span>CONFIDENTIAL · DO NOT LEAK</span>
                   <span>MH VISION · OFFICIAL PUBLICATION</span>
@@ -204,7 +205,7 @@ export function renderPDFReaderModal(doc, state) {
                   src="${activePageImageUrl}" 
                   alt="Page ${currentPageNum} of ${doc.title}"
                   draggable="false"
-                  class="w-full max-w-3xl rounded-xl shadow-2xl bg-white border border-neutral-700/50 select-none pointer-events-none"
+                  class="w-full max-w-3xl rounded-xl shadow-2xl bg-white border border-neutral-700/50 select-none pointer-events-none object-contain max-h-[82vh]"
                   onload="const sp = document.getElementById('page-loading-spinner'); if (sp) sp.style.display = 'none';"
                   onerror="this.classList.add('hidden'); const err = document.getElementById('page-load-error'); if (err) err.classList.remove('hidden');"
                 />
@@ -228,16 +229,16 @@ export function renderPDFReaderModal(doc, state) {
               </div>
 
               <!-- Running Footer -->
-              <div class="mt-4 flex items-center justify-between w-full max-w-3xl text-xs font-mono text-neutral-400 px-2 select-none">
-                <span>${doc.title}</span>
-                <span>Page ${currentPageNum} of ${totalPages} · MH VISION DRM Protected</span>
+              <div class="mt-3 sm:mt-4 flex items-center justify-between w-full max-w-3xl text-[10px] sm:text-xs font-mono text-neutral-400 px-2 select-none">
+                <span class="truncate pr-2">${doc.title}</span>
+                <span class="whitespace-nowrap">Page ${currentPageNum} of ${totalPages}</span>
               </div>
 
             </div>
           ` : `
             <!-- Fallback Typography Sheet -->
             <article id="reader-page-sheet" 
-                     class="relative w-full max-w-3xl min-h-[900px] p-8 sm:p-14 md:p-16 rounded-xl shadow-2xl transition-all duration-200 select-none ${themeClasses[currentTheme]}"
+                     class="relative w-full max-w-3xl min-h-[600px] sm:min-h-[900px] p-6 sm:p-14 md:p-16 rounded-xl shadow-2xl transition-all duration-200 select-none ${themeClasses[currentTheme]}"
                      style="transform: scale(${currentZoom / 100}); transform-origin: top center;">
               
               <!-- Watermark -->
@@ -246,26 +247,26 @@ export function renderPDFReaderModal(doc, state) {
                 <span>CONFIDENTIAL</span>
               </div>
 
-              <div class="flex justify-between items-center text-[11px] font-mono uppercase tracking-widest pb-6 mb-8 border-b border-black/10 dark:border-white/10 opacity-60">
+              <div class="flex justify-between items-center text-[10px] sm:text-[11px] font-mono uppercase tracking-widest pb-4 sm:pb-6 mb-6 sm:mb-8 border-b border-black/10 dark:border-white/10 opacity-60">
                 <span>MH VISION DIGITAL PUBLICATIONS</span>
                 <span>${doc.edition || 'MALAYALAM KNOWLEDGE HUB'}</span>
               </div>
 
-              <div class="text-center mb-10">
-                <span class="text-xs font-mono uppercase tracking-[0.3em] opacity-60 block mb-2">
+              <div class="text-center mb-8 sm:mb-10">
+                <span class="text-[10px] sm:text-xs font-mono uppercase tracking-[0.3em] opacity-60 block mb-2">
                   ${currentPageData.chapter || `SECTION ${currentPageNum}`}
                 </span>
-                <h1 class="text-2xl sm:text-3xl md:text-4xl font-serif font-bold tracking-tight">
+                <h1 class="text-xl sm:text-3xl md:text-4xl font-serif font-bold tracking-tight">
                   ${currentPageData.title}
                 </h1>
                 <div class="w-12 h-0.5 bg-amber-600 dark:bg-amber-400 mx-auto mt-4 opacity-70"></div>
               </div>
 
-              <div class="reading-prose space-y-6 font-serif leading-relaxed text-base sm:text-lg select-none">
+              <div class="reading-prose space-y-4 sm:space-y-6 font-serif leading-relaxed text-sm sm:text-lg select-none">
                 ${currentPageData.content}
               </div>
 
-              <div class="mt-16 pt-8 border-t border-black/10 dark:border-white/10 flex justify-between items-center text-xs font-mono opacity-50">
+              <div class="mt-12 sm:mt-16 pt-6 sm:pt-8 border-t border-black/10 dark:border-white/10 flex justify-between items-center text-[10px] sm:text-xs font-mono opacity-50">
                 <span>${doc.title}</span>
                 <span>Page ${currentPageNum} of ${totalPages} · DRM Protected</span>
               </div>
