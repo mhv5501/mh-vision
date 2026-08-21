@@ -29,7 +29,8 @@ import {
   fetchUserPurchases,
   savePurchaseReceipt,
   fetchAppConfig,
-  saveAppConfig
+  saveAppConfig,
+  subscribeUserPurchases
 } from './services/firebase.js';
 import { uploadPDFToCloudinary, detectPdfPageCountFast } from './services/cloudinary.js';
 
@@ -119,11 +120,18 @@ async function initFirebaseSync() {
       }
     });
 
-    // 3. Listen to Firebase Auth state
+    // 3. Listen to Firebase Auth state & subscribe to Purchases in real-time across devices
+    let purchasesUnsub = null;
+
     listenToAuthChanges(async (user) => {
       state.currentUser = user;
+      if (purchasesUnsub) {
+        purchasesUnsub();
+        purchasesUnsub = null;
+      }
+
       if (user) {
-        // Fetch cloud purchases permanently tied to this user account
+        // Initial fetch by UID and email
         try {
           const cloudPurchases = await fetchUserPurchases(user.uid, user.email);
           if (cloudPurchases && cloudPurchases.length > 0) {
@@ -137,6 +145,23 @@ async function initFirebaseSync() {
         } catch (err) {
           console.warn('Could not sync user cloud purchases:', err);
         }
+
+        // Real-time listener for multi-device sync (e.g. Phone unlocks -> Laptop unlocks instantly!)
+        purchasesUnsub = subscribeUserPurchases(user.uid, user.email, (livePurchases) => {
+          if (livePurchases && livePurchases.length > 0) {
+            let updated = false;
+            livePurchases.forEach(id => {
+              if (!state.unlockedDocs.includes(id)) {
+                state.unlockedDocs.push(id);
+                updated = true;
+              }
+            });
+            if (updated) {
+              localStorage.setItem('mh_unlocked_docs', JSON.stringify(state.unlockedDocs));
+              renderApp();
+            }
+          }
+        });
       }
       renderApp();
     });

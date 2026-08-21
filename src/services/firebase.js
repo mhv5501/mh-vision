@@ -238,47 +238,97 @@ export function listenToAuthChanges(callback) {
  */
 export async function fetchUserPurchases(uid, email) {
   if (!uid && !email) return [];
+  const unlockedDocIds = new Set();
+
   try {
     const purchasesRef = collection(db, PURCHASES_COLLECTION);
-    const q = query(purchasesRef, where('userId', '==', uid));
-    const snapshot = await getDocs(q);
     
-    const unlockedDocIds = [];
-    snapshot.forEach(docSnap => {
-      const data = docSnap.data();
-      if (data.docId) {
-        unlockedDocIds.push(data.docId);
+    // 1. Fetch by UID
+    if (uid) {
+      try {
+        const qUid = query(purchasesRef, where('userId', '==', uid));
+        const snapUid = await getDocs(qUid);
+        snapUid.forEach(docSnap => {
+          const data = docSnap.data();
+          if (data.docId) unlockedDocIds.add(data.docId);
+        });
+      } catch (e1) {
+        console.warn('UID purchase query note:', e1);
       }
-    });
-
-    // Also query by email fallback if available
-    if (email) {
-      const qEmail = query(purchasesRef, where('userEmail', '==', email));
-      const emailSnapshot = await getDocs(qEmail);
-      emailSnapshot.forEach(docSnap => {
-        const data = docSnap.data();
-        if (data.docId && !unlockedDocIds.includes(data.docId)) {
-          unlockedDocIds.push(data.docId);
-        }
-      });
     }
 
-    return unlockedDocIds;
+    // 2. Fetch by Email (Exact and Lowercase)
+    if (email) {
+      const cleanEmail = email.toLowerCase().trim();
+      try {
+        const qEmail = query(purchasesRef, where('userEmail', '==', email));
+        const snapEmail = await getDocs(qEmail);
+        snapEmail.forEach(docSnap => {
+          const data = docSnap.data();
+          if (data.docId) unlockedDocIds.add(data.docId);
+        });
+      } catch (e2) {}
+
+      if (cleanEmail !== email) {
+        try {
+          const qEmailLower = query(purchasesRef, where('userEmail', '==', cleanEmail));
+          const snapLower = await getDocs(qEmailLower);
+          snapLower.forEach(docSnap => {
+            const data = docSnap.data();
+            if (data.docId) unlockedDocIds.add(data.docId);
+          });
+        } catch (e3) {}
+      }
+    }
+
+    return Array.from(unlockedDocIds);
   } catch (error) {
     console.warn('Could not fetch cloud purchases:', error);
-    return [];
+    return Array.from(unlockedDocIds);
   }
 }
 
 /**
- * Save purchase receipt permanently to Firestore
+ * Subscribe to Real-Time User Purchases across devices (Phone, Laptop, Tablet)
+ */
+export function subscribeUserPurchases(uid, email, onUpdate) {
+  if (!uid && !email) return () => {};
+  
+  try {
+    const purchasesRef = collection(db, PURCHASES_COLLECTION);
+    const q = uid 
+      ? query(purchasesRef, where('userId', '==', uid))
+      : query(purchasesRef, where('userEmail', '==', email));
+
+    return onSnapshot(q, (snapshot) => {
+      const ids = [];
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        if (data.docId) ids.push(data.docId);
+      });
+      onUpdate(ids);
+    }, (err) => {
+      console.warn('Real-time purchases listener notice:', err);
+    });
+  } catch (err) {
+    console.warn('Could not establish real-time purchases listener:', err);
+    return () => {};
+  }
+}
+
+/**
+ * Save purchase receipt permanently to Firestore with fallback indexing
  */
 export async function savePurchaseReceipt(receiptData) {
   try {
     const receiptId = 'rec-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
     const docRef = doc(db, PURCHASES_COLLECTION, receiptId);
+    const cleanEmail = receiptData.userEmail ? receiptData.userEmail.toLowerCase().trim() : '';
+
     await setDoc(docRef, {
       ...receiptData,
+      userEmail: receiptData.userEmail || '',
+      userEmailLower: cleanEmail,
       timestamp: serverTimestamp()
     });
     return { success: true, receiptId };
