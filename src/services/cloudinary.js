@@ -1,8 +1,27 @@
 // Cloudinary Storage Service for MH VISION
 export const CLOUDINARY_CONFIG = {
   cloudName: 'ljjwa6sr',
+  apiKey: '533336682954658',
+  apiSecret: '7y4dEy4WDY_QVGwJ5sT4dSS-GYw',
   uploadPreset: 'mh_pdf_uploads'
 };
+
+/**
+ * Extract clean Cloudinary public_id from full URL or asset string
+ */
+export function extractCloudinaryPublicId(urlOrId) {
+  if (!urlOrId) return '';
+  if (!urlOrId.includes('/') && !urlOrId.includes(':')) {
+    return urlOrId.replace(/\.pdf$/i, '');
+  }
+  try {
+    const match = urlOrId.match(/\/upload\/(?:v\d+\/)?(.+?)(?:\.[a-zA-Z0-9]+)?$/);
+    if (match && match[1]) {
+      return match[1].replace(/\.pdf$/i, '');
+    }
+  } catch (e) {}
+  return urlOrId.split('/').pop().replace(/\.[^/.]+$/, "");
+}
 
 /**
  * Generate a high-resolution, CORS-free image URL for any specific page of an uploaded PDF.
@@ -12,7 +31,7 @@ export const CLOUDINARY_CONFIG = {
  */
 export function getCloudinaryPageUrl(publicId, pageNum = 1) {
   if (!publicId) return '';
-  const cleanId = publicId.replace(/\.pdf$/i, '');
+  const cleanId = extractCloudinaryPublicId(publicId);
   return `https://res.cloudinary.com/${CLOUDINARY_CONFIG.cloudName}/image/upload/w_1400,c_limit,q_auto:best,pg_${pageNum}/${cleanId}.jpg`;
 }
 
@@ -40,24 +59,60 @@ export async function detectPdfPageCountFast(file) {
 }
 
 /**
- * Upload a PDF file directly to Cloudinary using the unsigned upload preset.
- * Uses auto/upload for universal high-speed uploading.
+ * Generate SHA-1 hex signature for Cloudinary signed API requests via Web Crypto API
+ */
+async function generateCloudinarySignature(params, apiSecret) {
+  const sortedKeys = Object.keys(params).sort();
+  const paramString = sortedKeys.map(k => `${k}=${params[k]}`).join('&') + apiSecret;
+  const encoder = new TextEncoder();
+  const data = encoder.encode(paramString);
+  const hashBuffer = await crypto.subtle.digest('SHA-1', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Upload a PDF file directly to Cloudinary using signed authentication (API key + SHA-1 signature).
+ * Falls back to unsigned upload preset if signed upload is rejected.
  * @param {File} file - The PDF file object
  * @param {Function} onProgress - Progress callback function (percentage: number)
  * @returns {Promise<{secureUrl: string, publicId: string, pages: number, bytes: number}>}
  */
-export function uploadPDFToCloudinary(file, onProgress = () => {}) {
-  return new Promise((resolve, reject) => {
-    const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/auto/upload`;
+export async function uploadPDFToCloudinary(file, onProgress = () => {}) {
+  const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/auto/upload`;
+  const timestamp = Math.round(Date.now() / 1000);
+
+  // 1. Try Signed API Upload first
+  try {
+    const signature = await generateCloudinarySignature({ timestamp }, CLOUDINARY_CONFIG.apiSecret);
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('api_key', CLOUDINARY_CONFIG.apiKey);
+    formData.append('timestamp', timestamp);
+    formData.append('signature', signature);
+
+    return await performXhrUpload(url, formData, onProgress);
+  } catch (signedErr) {
+    console.warn('Signed Cloudinary upload notice, trying unsigned preset fallback:', signedErr);
+
+    // 2. Fallback to Unsigned Preset Upload
     const formData = new FormData();
     formData.append('file', file);
     formData.append('upload_preset', CLOUDINARY_CONFIG.uploadPreset);
 
+    return await performXhrUpload(url, formData, onProgress);
+  }
+}
+
+/**
+ * Helper to perform XMLHttpRequest with progress callbacks
+ */
+function performXhrUpload(url, formData, onProgress) {
+  return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open('POST', url, true);
-    xhr.timeout = 45000; // 45s safety timeout
+    xhr.timeout = 60000; // 60s timeout for large PDFs
 
-    // Track upload progress
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) {
         const percent = Math.round((e.loaded / e.total) * 100);
@@ -65,7 +120,6 @@ export function uploadPDFToCloudinary(file, onProgress = () => {}) {
       }
     };
 
-    // On complete
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
         try {
@@ -84,19 +138,17 @@ export function uploadPDFToCloudinary(file, onProgress = () => {}) {
         try {
           const errorResp = JSON.parse(xhr.responseText);
           const errorMsg = errorResp.error ? errorResp.error.message : xhr.statusText;
-          reject(new Error(`Cloudinary upload notice: ${errorMsg}`));
+          reject(new Error(`Cloudinary upload: ${errorMsg}`));
         } catch (e) {
           reject(new Error(`Upload failed with status ${xhr.status}: ${xhr.statusText}`));
         }
       }
     };
 
-    // Timeout
     xhr.ontimeout = () => {
       reject(new Error('Upload connection timed out. Please check your internet connection.'));
     };
 
-    // On error
     xhr.onerror = () => {
       reject(new Error('Network error occurred while uploading to Cloudinary.'));
     };
