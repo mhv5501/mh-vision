@@ -162,9 +162,34 @@ function performXhrUpload(url, formData, onProgress) {
  * @returns {Promise<Array<{publicId: string, secureUrl: string, bytes: number, createdAt: string}>>}
  */
 export async function fetchCloudinaryStorageAssets() {
+  const pdfAssets = [];
+
+  // 1. Try local server proxy endpoint first (bypasses browser CORS restrictions)
+  try {
+    const proxyRes = await fetch('/api/cloudinary/resources');
+    if (proxyRes.ok) {
+      const data = await proxyRes.json();
+      if (data && Array.isArray(data.resources)) {
+        data.resources.forEach(res => {
+          if (res.format === 'pdf' || res.public_id.endsWith('.pdf') || (res.secure_url && res.secure_url.endsWith('.pdf'))) {
+            pdfAssets.push({
+              publicId: res.public_id,
+              secureUrl: res.secure_url,
+              bytes: res.bytes || 0,
+              createdAt: res.created_at || new Date().toISOString()
+            });
+          }
+        });
+        return pdfAssets;
+      }
+    }
+  } catch (proxyErr) {
+    console.warn('Local proxy resources endpoint notice, trying direct API fallback:', proxyErr);
+  }
+
+  // 2. Direct Cloudinary Admin API fallback
   const credentials = btoa(`${CLOUDINARY_CONFIG.apiKey}:${CLOUDINARY_CONFIG.apiSecret}`);
   const authHeader = `Basic ${credentials}`;
-  const pdfAssets = [];
 
   try {
     for (const resType of ['image', 'raw']) {

@@ -472,7 +472,9 @@ export async function deletePublicationFromFirestore(docId) {
  * Auto-imports new Cloudinary PDF assets and prunes deleted Cloudinary PDF assets.
  */
 export async function reconcileCloudinaryWithFirestore(cloudinaryAssets) {
-  if (!Array.isArray(cloudinaryAssets)) return await fetchPublications();
+  if (!Array.isArray(cloudinaryAssets) || cloudinaryAssets.length === 0) {
+    return await fetchPublications();
+  }
 
   try {
     const existingDocs = await fetchPublications();
