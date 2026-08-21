@@ -30,7 +30,8 @@ import {
   savePurchaseReceipt,
   fetchAppConfig,
   saveAppConfig,
-  subscribeUserPurchases
+  subscribeUserPurchases,
+  syncLocalPurchasesToCloud
 } from './services/firebase.js';
 import { uploadPDFToCloudinary, detectPdfPageCountFast } from './services/cloudinary.js';
 
@@ -131,10 +132,18 @@ async function initFirebaseSync() {
       }
 
       if (user) {
-        // Load account-specific cache (e.g. mh_unlocked_UID)
+        // Load account-specific cache (e.g. mh_unlocked_UID) or legacy cache (mh_unlocked_docs)
         const userCacheKey = 'mh_unlocked_' + user.uid;
+        const legacyPurchases = JSON.parse(localStorage.getItem('mh_unlocked_docs') || '[]');
         const cachedUserPurchases = JSON.parse(localStorage.getItem(userCacheKey) || '[]');
-        state.unlockedDocs = Array.isArray(cachedUserPurchases) ? cachedUserPurchases : [];
+
+        const localCombined = Array.from(new Set([...cachedUserPurchases, ...legacyPurchases]));
+        state.unlockedDocs = localCombined;
+
+        // Auto-migrate any existing local browser purchases to Cloud Firestore for this user!
+        if (localCombined.length > 0) {
+          syncLocalPurchasesToCloud(user.uid, user.email, localCombined);
+        }
 
         // Initial fetch by UID and email
         try {

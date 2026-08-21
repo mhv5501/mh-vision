@@ -234,52 +234,27 @@ export function listenToAuthChanges(callback) {
 // -------------------------------------------------------------
 
 /**
- * Fetch all verified purchased publication IDs for a user
+ * Fetch all verified purchased publication IDs for a user (Fail-proof JS matching)
  */
 export async function fetchUserPurchases(uid, email) {
   if (!uid && !email) return [];
   const unlockedDocIds = new Set();
+  const cleanEmail = email ? email.toLowerCase().trim() : '';
 
   try {
     const purchasesRef = collection(db, PURCHASES_COLLECTION);
+    const snapshot = await getDocs(purchasesRef);
     
-    // 1. Fetch by UID
-    if (uid) {
-      try {
-        const qUid = query(purchasesRef, where('userId', '==', uid));
-        const snapUid = await getDocs(qUid);
-        snapUid.forEach(docSnap => {
-          const data = docSnap.data();
-          if (data.docId) unlockedDocIds.add(data.docId);
-        });
-      } catch (e1) {
-        console.warn('UID purchase query note:', e1);
+    snapshot.forEach(docSnap => {
+      const data = docSnap.data();
+      const matchUid = uid && data.userId && data.userId === uid;
+      const matchEmail = cleanEmail && data.userEmail && data.userEmail.toLowerCase().trim() === cleanEmail;
+      const matchEmailLower = cleanEmail && data.userEmailLower && data.userEmailLower === cleanEmail;
+      
+      if ((matchUid || matchEmail || matchEmailLower) && data.docId) {
+        unlockedDocIds.add(data.docId);
       }
-    }
-
-    // 2. Fetch by Email (Exact and Lowercase)
-    if (email) {
-      const cleanEmail = email.toLowerCase().trim();
-      try {
-        const qEmail = query(purchasesRef, where('userEmail', '==', email));
-        const snapEmail = await getDocs(qEmail);
-        snapEmail.forEach(docSnap => {
-          const data = docSnap.data();
-          if (data.docId) unlockedDocIds.add(data.docId);
-        });
-      } catch (e2) {}
-
-      if (cleanEmail !== email) {
-        try {
-          const qEmailLower = query(purchasesRef, where('userEmail', '==', cleanEmail));
-          const snapLower = await getDocs(qEmailLower);
-          snapLower.forEach(docSnap => {
-            const data = docSnap.data();
-            if (data.docId) unlockedDocIds.add(data.docId);
-          });
-        } catch (e3) {}
-      }
-    }
+    });
 
     return Array.from(unlockedDocIds);
   } catch (error) {
@@ -293,66 +268,56 @@ export async function fetchUserPurchases(uid, email) {
  */
 export function subscribeUserPurchases(uid, email, onUpdate) {
   if (!uid && !email) return () => {};
+  const cleanEmail = email ? email.toLowerCase().trim() : '';
   
-  const purchasesRef = collection(db, PURCHASES_COLLECTION);
-  const unlockedMap = new Map();
+  try {
+    const purchasesRef = collection(db, PURCHASES_COLLECTION);
+    return onSnapshot(purchasesRef, (snapshot) => {
+      const unlockedDocIds = new Set();
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        const matchUid = uid && data.userId && data.userId === uid;
+        const matchEmail = cleanEmail && data.userEmail && data.userEmail.toLowerCase().trim() === cleanEmail;
+        const matchEmailLower = cleanEmail && data.userEmailLower && data.userEmailLower === cleanEmail;
 
-  const notify = () => {
-    onUpdate(Array.from(unlockedMap.keys()));
-  };
-
-  const unsubs = [];
-
-  // Listen by UID
-  if (uid) {
-    try {
-      const qUid = query(purchasesRef, where('userId', '==', uid));
-      const unsubUid = onSnapshot(qUid, (snapshot) => {
-        snapshot.forEach(docSnap => {
-          const data = docSnap.data();
-          if (data.docId) unlockedMap.set(data.docId, true);
-        });
-        notify();
-      }, (err) => console.warn('UID snapshot note:', err));
-      unsubs.push(unsubUid);
-    } catch (e) {}
-  }
-
-  // Listen by Email
-  if (email) {
-    const cleanEmail = email.toLowerCase().trim();
-    try {
-      const qEmail = query(purchasesRef, where('userEmail', '==', email));
-      const unsubEmail = onSnapshot(qEmail, (snapshot) => {
-        snapshot.forEach(docSnap => {
-          const data = docSnap.data();
-          if (data.docId) unlockedMap.set(data.docId, true);
-        });
-        notify();
-      }, (err) => console.warn('Email snapshot note:', err));
-      unsubs.push(unsubEmail);
-    } catch (e) {}
-
-    if (cleanEmail !== email) {
-      try {
-        const qEmailLower = query(purchasesRef, where('userEmail', '==', cleanEmail));
-        const unsubLower = onSnapshot(qEmailLower, (snapshot) => {
-          snapshot.forEach(docSnap => {
-            const data = docSnap.data();
-            if (data.docId) unlockedMap.set(data.docId, true);
-          });
-          notify();
-        }, (err) => console.warn('Email lower snapshot note:', err));
-        unsubs.push(unsubLower);
-      } catch (e) {}
-    }
-  }
-
-  return () => {
-    unsubs.forEach(unsub => {
-      try { unsub(); } catch (e) {}
+        if ((matchUid || matchEmail || matchEmailLower) && data.docId) {
+          unlockedDocIds.add(data.docId);
+        }
+      });
+      onUpdate(Array.from(unlockedDocIds));
+    }, (err) => {
+      console.warn('Real-time purchases snapshot warning:', err);
     });
-  };
+  } catch (err) {
+    console.warn('Could not subscribe to purchases:', err);
+    return () => {};
+  }
+}
+
+/**
+ * Migrate/Sync local browser purchases to Cloud Firestore for active user
+ */
+export async function syncLocalPurchasesToCloud(uid, email, localDocIds) {
+  if (!uid || !email || !Array.isArray(localDocIds) || localDocIds.length === 0) return;
+  
+  try {
+    const existingCloudPurchases = await fetchUserPurchases(uid, email);
+    for (const docId of localDocIds) {
+      if (!existingCloudPurchases.includes(docId)) {
+        await savePurchaseReceipt({
+          docId: docId,
+          title: 'Purchased Publication',
+          price: 0,
+          paymentId: 'SYNCED_LOCAL_PURCHASE',
+          gateway: 'sync',
+          userId: uid,
+          userEmail: email
+        });
+      }
+    }
+  } catch (err) {
+    console.warn('Local purchase sync warning:', err);
+  }
 }
 
 /**
