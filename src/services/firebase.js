@@ -330,7 +330,12 @@ export async function savePurchaseReceipt(receiptData) {
     const cleanEmail = receiptData.userEmail ? receiptData.userEmail.toLowerCase().trim() : '';
 
     const payload = JSON.parse(JSON.stringify({
-      ...receiptData,
+      docId: receiptData.docId || '',
+      title: receiptData.title || '',
+      price: typeof receiptData.price === 'number' ? receiptData.price : 0,
+      paymentId: receiptData.paymentId || 'RAZORPAY_PAYMENT',
+      gateway: receiptData.gateway || 'razorpay',
+      userId: receiptData.userId || '',
       userEmail: receiptData.userEmail || '',
       userEmailLower: cleanEmail,
       timestamp: new Date().toISOString()

@@ -144,12 +144,8 @@ async function initFirebaseSync() {
         // Initial fetch by UID and email from Cloud Firestore
         try {
           const cloudPurchases = await fetchUserPurchases(user.uid, user.email);
-          if (cloudPurchases && cloudPurchases.length > 0) {
-            cloudPurchases.forEach(id => {
-              if (!state.unlockedDocs.includes(id)) {
-                state.unlockedDocs.push(id);
-              }
-            });
+          if (cloudPurchases && Array.isArray(cloudPurchases)) {
+            state.unlockedDocs = cloudPurchases;
             localStorage.setItem(userCacheKey, JSON.stringify(state.unlockedDocs));
           }
         } catch (err) {
@@ -319,13 +315,19 @@ window.handleUserGoogleLogin = async function() {
       state.currentUser = authResult.user;
       state.isUserAuthModalOpen = false;
       
-      // Fetch user purchases from Firestore
-      const purchases = await fetchUserPurchases(authResult.user.uid, authResult.user.email);
-      if (purchases && purchases.length > 0) {
-        purchases.forEach(id => {
-          if (!state.unlockedDocs.includes(id)) state.unlockedDocs.push(id);
-        });
-        localStorage.setItem('mh_unlocked_docs', JSON.stringify(state.unlockedDocs));
+      // Clear unlockedDocs first for account isolation
+      state.unlockedDocs = [];
+      const userCacheKey = 'mh_unlocked_' + authResult.user.uid;
+
+      // Fetch user purchases from Firestore by UID & email
+      try {
+        const purchases = await fetchUserPurchases(authResult.user.uid, authResult.user.email);
+        if (purchases && Array.isArray(purchases)) {
+          state.unlockedDocs = purchases;
+          localStorage.setItem(userCacheKey, JSON.stringify(state.unlockedDocs));
+        }
+      } catch (pErr) {
+        console.warn('Could not sync user purchases on login:', pErr);
       }
 
       // If user was attempting to purchase a document before signing in:
@@ -392,13 +394,19 @@ window.handleUserEmailAuth = async function(e) {
       state.currentUser = authResult.user;
       state.isUserAuthModalOpen = false;
 
-      // Sync purchases
-      const purchases = await fetchUserPurchases(authResult.user.uid, authResult.user.email);
-      if (purchases && purchases.length > 0) {
-        purchases.forEach(id => {
-          if (!state.unlockedDocs.includes(id)) state.unlockedDocs.push(id);
-        });
-        localStorage.setItem('mh_unlocked_docs', JSON.stringify(state.unlockedDocs));
+      // Clear unlockedDocs first for account isolation
+      state.unlockedDocs = [];
+      const userCacheKey = 'mh_unlocked_' + authResult.user.uid;
+
+      // Fetch user purchases from Firestore by UID & email
+      try {
+        const purchases = await fetchUserPurchases(authResult.user.uid, authResult.user.email);
+        if (purchases && Array.isArray(purchases)) {
+          state.unlockedDocs = purchases;
+          localStorage.setItem(userCacheKey, JSON.stringify(state.unlockedDocs));
+        }
+      } catch (pErr) {
+        console.warn('Could not sync user purchases on login:', pErr);
       }
 
       // If user was attempting to purchase a document before signing in:
@@ -430,14 +438,15 @@ window.handleUserEmailAuth = async function(e) {
 window.handleUserSignOut = async function() {
   try {
     await logoutUser();
-    state.currentUser = null;
-    state.unlockedDocs = [];
-    state.activeReaderDocId = null;
-    state.isUserMenuOpen = false;
-    renderApp();
   } catch (err) {
     console.error('Sign out error:', err);
   }
+  state.currentUser = null;
+  state.unlockedDocs = [];
+  state.activeReaderDocId = null;
+  state.isUserMenuOpen = false;
+  state.isLibraryDrawerOpen = false;
+  renderApp();
 };
 
 window.handleOpenLibraryDrawer = function() {

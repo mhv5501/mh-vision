@@ -51,6 +51,8 @@ const server = http.createServer((req, res) => {
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`TEST PDF Platform server running at http://localhost:${PORT}`);
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`TEST PDF Platform server running:`);
+  console.log(`- Local Access: http://localhost:${PORT}`);
+  console.log(`- Mobile / Network Access: http://<your-laptop-ip>:${PORT}`);
 });
