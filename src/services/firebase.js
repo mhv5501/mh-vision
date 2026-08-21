@@ -321,7 +321,7 @@ export async function syncLocalPurchasesToCloud(uid, email, localDocIds) {
 }
 
 /**
- * Save purchase receipt permanently to Firestore with fallback indexing
+ * Save purchase receipt permanently to Firestore
  */
 export async function savePurchaseReceipt(receiptData) {
   try {
@@ -329,15 +329,17 @@ export async function savePurchaseReceipt(receiptData) {
     const docRef = doc(db, PURCHASES_COLLECTION, receiptId);
     const cleanEmail = receiptData.userEmail ? receiptData.userEmail.toLowerCase().trim() : '';
 
-    await setDoc(docRef, {
+    const payload = JSON.parse(JSON.stringify({
       ...receiptData,
       userEmail: receiptData.userEmail || '',
       userEmailLower: cleanEmail,
-      timestamp: serverTimestamp()
-    });
+      timestamp: new Date().toISOString()
+    }));
+
+    await setDoc(docRef, payload);
     return { success: true, receiptId };
   } catch (error) {
-    console.warn('Could not save purchase receipt to Firestore:', error);
+    console.error('Could not save purchase receipt to Firestore:', error);
     return { success: false };
   }
 }
@@ -381,10 +383,9 @@ export function subscribePublications(onUpdate) {
   }
 }
 
-// Save a new publication to Firestore (Sanitized payload)
+// Save a new publication to Firestore (Direct & Fail-Proof Write)
 export async function savePublicationToFirestore(pubData) {
   try {
-    await authenticateAdmin();
     const docRef = doc(db, PUBLICATIONS_COLLECTION, pubData.id);
     
     // Remove undefined values to prevent Firestore rejection
@@ -396,8 +397,20 @@ export async function savePublicationToFirestore(pubData) {
     await setDoc(docRef, cleanPayload);
     return { success: true };
   } catch (error) {
-    console.warn('Firestore publication save notice:', error);
-    return { success: false };
+    console.warn('Direct publication save notice, trying auth fallback:', error);
+    try {
+      await authenticateAdmin();
+      const docRef = doc(db, PUBLICATIONS_COLLECTION, pubData.id);
+      const cleanPayload = JSON.parse(JSON.stringify({
+        ...pubData,
+        updatedAt: new Date().toISOString()
+      }));
+      await setDoc(docRef, cleanPayload);
+      return { success: true };
+    } catch (e2) {
+      console.error('Publication save error:', e2);
+      return { success: false };
+    }
   }
 }
 
