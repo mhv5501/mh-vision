@@ -466,3 +466,82 @@ export async function deletePublicationFromFirestore(docId) {
     throw error;
   }
 }
+
+/**
+ * Reconcile Cloudinary storage assets with Firestore catalog.
+ * Auto-imports new Cloudinary PDF assets and prunes deleted Cloudinary PDF assets.
+ */
+export async function reconcileCloudinaryWithFirestore(cloudinaryAssets) {
+  if (!Array.isArray(cloudinaryAssets)) return await fetchPublications();
+
+  try {
+    const existingDocs = await fetchPublications();
+    const activeCloudinaryPublicIds = new Set(cloudinaryAssets.map(a => a.publicId.replace(/\.pdf$/i, '')));
+    const activeCloudinaryUrls = new Set(cloudinaryAssets.map(a => a.secureUrl));
+
+    // 1. Prune documents from Firestore if their Cloudinary PDF file was deleted
+    const validDocs = [];
+    for (const docItem of existingDocs) {
+      const isCloudinaryDoc = Boolean(docItem.publicId || (docItem.pdfUrl && docItem.pdfUrl.includes('cloudinary.com')));
+      if (isCloudinaryDoc) {
+        const cleanPubId = (docItem.publicId || '').replace(/\.pdf$/i, '');
+        const matchByPublicId = cleanPubId && activeCloudinaryPublicIds.has(cleanPubId);
+        const matchByUrl = docItem.pdfUrl && activeCloudinaryUrls.has(docItem.pdfUrl);
+
+        if (matchByPublicId || matchByUrl) {
+          validDocs.push(docItem);
+        } else {
+          // Asset deleted from Cloudinary storage -> remove from Firestore!
+          console.log(`Pruning deleted Cloudinary publication from Firestore: ${docItem.title} (${docItem.id})`);
+          await deletePublicationFromFirestore(docItem.id);
+        }
+      } else {
+        validDocs.push(docItem);
+      }
+    }
+
+    // 2. Import assets uploaded directly to Cloudinary if not yet in Firestore
+    const existingPublicIds = new Set(validDocs.map(d => (d.publicId || '').replace(/\.pdf$/i, '')));
+    const existingPdfUrls = new Set(validDocs.map(d => d.pdfUrl));
+
+    for (const asset of cloudinaryAssets) {
+      const cleanPubId = asset.publicId.replace(/\.pdf$/i, '');
+      if (!existingPublicIds.has(cleanPubId) && !existingPdfUrls.has(asset.secureUrl)) {
+        const newDocId = 'pub-cloud-' + cleanPubId.replace(/[^a-zA-Z0-9-]/g, '');
+        const gradients = [
+          'linear-gradient(135deg, #1C1917 0%, #292524 50%, #44403C 100%)',
+          'linear-gradient(135deg, #09090B 0%, #1E1B4B 100%)',
+          'linear-gradient(135deg, #022C22 0%, #064E3B 50%, #0F172A 100%)'
+        ];
+        const randomGradient = gradients[Math.floor(Math.random() * gradients.length)];
+
+        const importedDoc = {
+          id: newDocId,
+          title: `Cloud Publication · ${cleanPubId}`,
+          subtitle: 'Synchronized from Cloudinary Storage',
+          author: 'MH VISION',
+          category: 'General Knowledge',
+          price: 299,
+          pages: 28,
+          readTime: '20 min',
+          edition: 'Official Edition · 2026',
+          coverStyle: randomGradient,
+          accentColor: '#D4AF37',
+          badge: 'Cloud Sync',
+          abstract: 'Official PDF publication synchronized directly from Cloudinary CDN storage.',
+          publicId: cleanPubId,
+          pdfUrl: asset.secureUrl,
+          updatedAt: new Date().toISOString()
+        };
+
+        await savePublicationToFirestore(importedDoc);
+        validDocs.unshift(importedDoc);
+      }
+    }
+
+    return validDocs;
+  } catch (err) {
+    console.warn('Reconcile Cloudinary with Firestore warning:', err);
+    return await fetchPublications();
+  }
+}

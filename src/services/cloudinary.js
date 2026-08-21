@@ -156,3 +156,71 @@ function performXhrUpload(url, formData, onProgress) {
     xhr.send(formData);
   });
 }
+
+/**
+ * Query Cloudinary Admin API directly to list all active PDF assets stored in Cloudinary
+ * @returns {Promise<Array<{publicId: string, secureUrl: string, bytes: number, createdAt: string}>>}
+ */
+export async function fetchCloudinaryStorageAssets() {
+  const credentials = btoa(`${CLOUDINARY_CONFIG.apiKey}:${CLOUDINARY_CONFIG.apiSecret}`);
+  const authHeader = `Basic ${credentials}`;
+  const pdfAssets = [];
+
+  try {
+    for (const resType of ['image', 'raw']) {
+      const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/resources/${resType}?max_results=500`;
+      const response = await fetch(url, {
+        headers: { 'Authorization': authHeader }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data && Array.isArray(data.resources)) {
+          data.resources.forEach(res => {
+            if (res.format === 'pdf' || res.public_id.endsWith('.pdf') || (res.secure_url && res.secure_url.endsWith('.pdf'))) {
+              pdfAssets.push({
+                publicId: res.public_id,
+                secureUrl: res.secure_url,
+                bytes: res.bytes || 0,
+                createdAt: res.created_at || new Date().toISOString()
+              });
+            }
+          });
+        }
+      }
+    }
+    return pdfAssets;
+  } catch (err) {
+    console.warn('Could not fetch Cloudinary assets:', err);
+    return [];
+  }
+}
+
+/**
+ * Delete a PDF asset directly from Cloudinary storage via Admin API
+ * @param {string} publicId - Cloudinary asset public_id or URL
+ * @returns {Promise<{success: boolean}>}
+ */
+export async function deleteCloudinaryAsset(publicId) {
+  if (!publicId) return { success: false };
+  const cleanId = extractCloudinaryPublicId(publicId);
+  const credentials = btoa(`${CLOUDINARY_CONFIG.apiKey}:${CLOUDINARY_CONFIG.apiSecret}`);
+  const authHeader = `Basic ${credentials}`;
+
+  try {
+    for (const resType of ['image', 'raw']) {
+      const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/resources/${resType}/upload?public_ids[]=${encodeURIComponent(cleanId)}`;
+      const response = await fetch(url, {
+        method: 'DELETE',
+        headers: { 'Authorization': authHeader }
+      });
+      if (response.ok) {
+        return { success: true };
+      }
+    }
+    return { success: false };
+  } catch (err) {
+    console.warn('Could not delete Cloudinary asset:', err);
+    return { success: false };
+  }
+}

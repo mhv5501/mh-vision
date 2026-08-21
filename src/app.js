@@ -31,9 +31,15 @@ import {
   fetchAppConfig,
   saveAppConfig,
   subscribeUserPurchases,
-  syncLocalPurchasesToCloud
+  syncLocalPurchasesToCloud,
+  reconcileCloudinaryWithFirestore
 } from './services/firebase.js';
-import { uploadPDFToCloudinary, detectPdfPageCountFast } from './services/cloudinary.js';
+import { 
+  uploadPDFToCloudinary, 
+  detectPdfPageCountFast, 
+  fetchCloudinaryStorageAssets, 
+  deleteCloudinaryAsset 
+} from './services/cloudinary.js';
 
 // Application State with Local Cache & Firestore Sync
 const cachedDocs = localStorage.getItem('mh_publications_cache');
@@ -105,20 +111,24 @@ async function initFirebaseSync() {
       console.warn('App config fetch note:', cfgErr);
     }
 
-    // 2. Fetch Publications Catalog & Auto-Sync any local laptop publications to Firestore Cloud
-    if (state.documents && state.documents.length > 0) {
-      syncLocalPublicationsToCloud(state.documents);
+    // 2. Fetch Cloudinary Storage Assets & Reconcile Catalog across all devices
+    try {
+      const cloudinaryAssets = await fetchCloudinaryStorageAssets();
+      if (cloudinaryAssets && Array.isArray(cloudinaryAssets)) {
+        const reconciledDocs = await reconcileCloudinaryWithFirestore(cloudinaryAssets);
+        if (reconciledDocs && Array.isArray(reconciledDocs)) {
+          state.documents = reconciledDocs;
+          cacheDocuments();
+          renderApp();
+        }
+      }
+    } catch (cErr) {
+      console.warn('Cloudinary two-way storage sync notice:', cErr);
     }
 
-    const cloudDocs = await fetchPublications();
-    if (cloudDocs && Array.isArray(cloudDocs) && cloudDocs.length > 0) {
-      state.documents = cloudDocs;
-      cacheDocuments();
-      renderApp();
-    }
-
+    // 3. Real-time Firestore snapshot updates across connected devices
     subscribePublications((liveDocs) => {
-      if (liveDocs && Array.isArray(liveDocs) && liveDocs.length > 0) {
+      if (liveDocs && Array.isArray(liveDocs)) {
         state.documents = liveDocs;
         cacheDocuments();
         renderApp();
@@ -829,15 +839,19 @@ window.handleAdminSaveEdit = async function(e, docId) {
 };
 
 window.handleAdminDeleteDoc = async function(docId) {
-  if (confirm("Are you sure you want to remove this publication from the archives?")) {
+  const docToDelete = state.documents.find(d => d.id === docId);
+  if (confirm("Are you sure you want to remove this publication from the archives and Cloudinary storage?")) {
     state.documents = state.documents.filter(d => d.id !== docId);
     cacheDocuments();
     renderApp();
 
     try {
       await deletePublicationFromFirestore(docId);
+      if (docToDelete && (docToDelete.publicId || docToDelete.pdfUrl)) {
+        await deleteCloudinaryAsset(docToDelete.publicId || docToDelete.pdfUrl);
+      }
     } catch (err) {
-      console.warn('Deleted locally, Firestore notice:', err);
+      console.warn('Deleted locally, Firestore/Cloudinary notice:', err);
     }
   }
 };
