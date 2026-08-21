@@ -294,26 +294,65 @@ export async function fetchUserPurchases(uid, email) {
 export function subscribeUserPurchases(uid, email, onUpdate) {
   if (!uid && !email) return () => {};
   
-  try {
-    const purchasesRef = collection(db, PURCHASES_COLLECTION);
-    const q = uid 
-      ? query(purchasesRef, where('userId', '==', uid))
-      : query(purchasesRef, where('userEmail', '==', email));
+  const purchasesRef = collection(db, PURCHASES_COLLECTION);
+  const unlockedMap = new Map();
 
-    return onSnapshot(q, (snapshot) => {
-      const ids = [];
-      snapshot.forEach(docSnap => {
-        const data = docSnap.data();
-        if (data.docId) ids.push(data.docId);
-      });
-      onUpdate(ids);
-    }, (err) => {
-      console.warn('Real-time purchases listener notice:', err);
-    });
-  } catch (err) {
-    console.warn('Could not establish real-time purchases listener:', err);
-    return () => {};
+  const notify = () => {
+    onUpdate(Array.from(unlockedMap.keys()));
+  };
+
+  const unsubs = [];
+
+  // Listen by UID
+  if (uid) {
+    try {
+      const qUid = query(purchasesRef, where('userId', '==', uid));
+      const unsubUid = onSnapshot(qUid, (snapshot) => {
+        snapshot.forEach(docSnap => {
+          const data = docSnap.data();
+          if (data.docId) unlockedMap.set(data.docId, true);
+        });
+        notify();
+      }, (err) => console.warn('UID snapshot note:', err));
+      unsubs.push(unsubUid);
+    } catch (e) {}
   }
+
+  // Listen by Email
+  if (email) {
+    const cleanEmail = email.toLowerCase().trim();
+    try {
+      const qEmail = query(purchasesRef, where('userEmail', '==', email));
+      const unsubEmail = onSnapshot(qEmail, (snapshot) => {
+        snapshot.forEach(docSnap => {
+          const data = docSnap.data();
+          if (data.docId) unlockedMap.set(data.docId, true);
+        });
+        notify();
+      }, (err) => console.warn('Email snapshot note:', err));
+      unsubs.push(unsubEmail);
+    } catch (e) {}
+
+    if (cleanEmail !== email) {
+      try {
+        const qEmailLower = query(purchasesRef, where('userEmail', '==', cleanEmail));
+        const unsubLower = onSnapshot(qEmailLower, (snapshot) => {
+          snapshot.forEach(docSnap => {
+            const data = docSnap.data();
+            if (data.docId) unlockedMap.set(data.docId, true);
+          });
+          notify();
+        }, (err) => console.warn('Email lower snapshot note:', err));
+        unsubs.push(unsubLower);
+      } catch (e) {}
+    }
+  }
+
+  return () => {
+    unsubs.forEach(unsub => {
+      try { unsub(); } catch (e) {}
+    });
+  };
 }
 
 /**

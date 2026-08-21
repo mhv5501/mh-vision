@@ -46,7 +46,7 @@ try {
 const state = {
   documents: Array.isArray(initialDocs) ? initialDocs : [],
   selectedCategory: 'All Categories',
-  unlockedDocs: JSON.parse(localStorage.getItem('mh_unlocked_docs') || '[]'),
+  unlockedDocs: [],
   activePaymentDocId: null,
   appliedDiscount: 0,
   activeReaderDocId: null,
@@ -131,6 +131,11 @@ async function initFirebaseSync() {
       }
 
       if (user) {
+        // Load account-specific cache (e.g. mh_unlocked_UID)
+        const userCacheKey = 'mh_unlocked_' + user.uid;
+        const cachedUserPurchases = JSON.parse(localStorage.getItem(userCacheKey) || '[]');
+        state.unlockedDocs = Array.isArray(cachedUserPurchases) ? cachedUserPurchases : [];
+
         // Initial fetch by UID and email
         try {
           const cloudPurchases = await fetchUserPurchases(user.uid, user.email);
@@ -140,7 +145,7 @@ async function initFirebaseSync() {
                 state.unlockedDocs.push(id);
               }
             });
-            localStorage.setItem('mh_unlocked_docs', JSON.stringify(state.unlockedDocs));
+            localStorage.setItem(userCacheKey, JSON.stringify(state.unlockedDocs));
           }
         } catch (err) {
           console.warn('Could not sync user cloud purchases:', err);
@@ -157,11 +162,17 @@ async function initFirebaseSync() {
               }
             });
             if (updated) {
-              localStorage.setItem('mh_unlocked_docs', JSON.stringify(state.unlockedDocs));
+              localStorage.setItem(userCacheKey, JSON.stringify(state.unlockedDocs));
               renderApp();
             }
           }
         });
+      } else {
+        // SIGNED OUT GUEST: Lock all publications immediately!
+        state.unlockedDocs = [];
+        if (state.activeReaderDocId) {
+          state.activeReaderDocId = null;
+        }
       }
       renderApp();
     });
@@ -423,6 +434,8 @@ window.handleUserSignOut = async function() {
   try {
     await logoutUser();
     state.currentUser = null;
+    state.unlockedDocs = [];
+    state.activeReaderDocId = null;
     state.isUserMenuOpen = false;
     renderApp();
   } catch (err) {
@@ -525,10 +538,12 @@ window.handleInitiateRazorpay = function(docId) {
         payText.innerHTML = `✓ Payment Confirmed! Unlocking PDF...`;
       }
 
-      // 1. Add publication to unlocked list
+      // 1. Add publication to unlocked list for this specific logged-in user account
       if (!state.unlockedDocs.includes(doc.id)) {
         state.unlockedDocs.push(doc.id);
-        localStorage.setItem('mh_unlocked_docs', JSON.stringify(state.unlockedDocs));
+        if (state.currentUser && state.currentUser.uid) {
+          localStorage.setItem('mh_unlocked_' + state.currentUser.uid, JSON.stringify(state.unlockedDocs));
+        }
       }
 
       // 2. Save verified purchase receipt in Firestore
@@ -590,7 +605,9 @@ window.handleInitiateRazorpay = function(docId) {
 async function executeInstantFreeUnlock(doc) {
   if (!state.unlockedDocs.includes(doc.id)) {
     state.unlockedDocs.push(doc.id);
-    localStorage.setItem('mh_unlocked_docs', JSON.stringify(state.unlockedDocs));
+    if (state.currentUser && state.currentUser.uid) {
+      localStorage.setItem('mh_unlocked_' + state.currentUser.uid, JSON.stringify(state.unlockedDocs));
+    }
   }
 
   try {
