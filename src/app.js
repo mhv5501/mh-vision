@@ -105,7 +105,11 @@ async function initFirebaseSync() {
       console.warn('App config fetch note:', cfgErr);
     }
 
-    // 2. Fetch Publications Catalog
+    // 2. Fetch Publications Catalog & Auto-Sync any local laptop publications to Firestore Cloud
+    if (state.documents && state.documents.length > 0) {
+      syncLocalPublicationsToCloud(state.documents);
+    }
+
     const cloudDocs = await fetchPublications();
     if (cloudDocs && Array.isArray(cloudDocs) && cloudDocs.length > 0) {
       state.documents = cloudDocs;

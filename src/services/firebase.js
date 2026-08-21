@@ -381,20 +381,42 @@ export function subscribePublications(onUpdate) {
   }
 }
 
-// Save a new publication to Firestore
+// Save a new publication to Firestore (Sanitized payload)
 export async function savePublicationToFirestore(pubData) {
   try {
     await authenticateAdmin();
     const docRef = doc(db, PUBLICATIONS_COLLECTION, pubData.id);
-    const payload = {
+    
+    // Remove undefined values to prevent Firestore rejection
+    const cleanPayload = JSON.parse(JSON.stringify({
       ...pubData,
-      updatedAt: serverTimestamp()
-    };
-    await setDoc(docRef, payload);
+      updatedAt: new Date().toISOString()
+    }));
+
+    await setDoc(docRef, cleanPayload);
     return { success: true };
   } catch (error) {
-    console.error('Error saving publication to Firestore:', error);
-    throw error;
+    console.warn('Firestore publication save notice:', error);
+    return { success: false };
+  }
+}
+
+/**
+ * Auto-sync any local publications uploaded on laptop to Cloud Firestore
+ */
+export async function syncLocalPublicationsToCloud(localDocs) {
+  if (!Array.isArray(localDocs) || localDocs.length === 0) return;
+  try {
+    const cloudDocs = await fetchPublications();
+    const cloudIds = new Set(cloudDocs.map(d => d.id));
+
+    for (const docItem of localDocs) {
+      if (!cloudIds.has(docItem.id)) {
+        await savePublicationToFirestore(docItem);
+      }
+    }
+  } catch (err) {
+    console.warn('Local publication sync warning:', err);
   }
 }
 
