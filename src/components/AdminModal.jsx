@@ -55,6 +55,15 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
   const [passwordSuccess, setPasswordSuccess] = useState('');
   const [passwordError, setPasswordError] = useState('');
 
+  // Reset authentication state whenever modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setIsAuthenticated(false);
+      setAdminPasswordInput('');
+      setAuthError('');
+    }
+  }, [isOpen]);
+
   useEffect(() => {
     if (!isOpen || !isAuthenticated) return;
     const unsub = subscribeToAnalytics(setAnalytics);
@@ -62,6 +71,13 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
   }, [isOpen, isAuthenticated]);
 
   if (!isOpen) return null;
+
+  const handleClose = () => {
+    setIsAuthenticated(false);
+    setAdminPasswordInput('');
+    setAuthError('');
+    onClose();
+  };
 
   const handleAdminAuth = async (e) => {
     e.preventDefault();
@@ -194,7 +210,7 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
       <div className="relative w-full max-w-4xl max-h-[90vh] bg-white dark:bg-slate-900 border border-sky-200 dark:border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col text-slate-800 dark:text-slate-100">
         
         <button
-          onClick={onClose}
+          onClick={handleClose}
           className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors z-10"
         >
           <X className="w-5 h-5" />
