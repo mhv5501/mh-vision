@@ -24,46 +24,10 @@ export default function App() {
 
   const { currentUser, isPdfUnlocked } = useAuth();
 
-  // Real-time Firestore PDF subscription
+  // Real-time Firestore PDF subscription (only real uploaded PDFs)
   useEffect(() => {
     const unsub = subscribeToPdfs((pdfList) => {
-      if (pdfList.length > 0) {
-        setPdfs(pdfList);
-      } else {
-        // Sample default PDFs for initial demonstration
-        setPdfs([
-          {
-            id: 'sample-1',
-            title: 'Malayalam Knowledge Hub - Current Affairs 2026',
-            description: 'Comprehensive guide covering national news, analysis, science & technology updates in Malayalam.',
-            price: 49,
-            category: 'Current Affairs',
-            pdfUrl: 'https://pdfobject.com/pdf/sample.pdf',
-            coverUrl: '',
-            createdAt: new Date().toISOString()
-          },
-          {
-            id: 'sample-2',
-            title: 'Science & Technology Innovation Notes',
-            description: 'In-depth notes on latest breakthroughs, space missions, and AI advancements.',
-            price: 99,
-            category: 'Science & Tech',
-            pdfUrl: 'https://pdfobject.com/pdf/sample.pdf',
-            coverUrl: '',
-            createdAt: new Date().toISOString()
-          },
-          {
-            id: 'sample-3',
-            title: 'Kerala History & Culture Overview',
-            description: 'Free introductory guide to Kerala historical milestones and cultural heritage.',
-            price: 0,
-            category: 'History',
-            pdfUrl: 'https://pdfobject.com/pdf/sample.pdf',
-            coverUrl: '',
-            createdAt: new Date().toISOString()
-          }
-        ]);
-      }
+      setPdfs(pdfList || []);
     });
 
     return () => unsub();
@@ -119,7 +83,7 @@ export default function App() {
       {/* Main Single Page Content */}
       <main className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-12">
         
-        {/* HERO BANNER SECTION (Clean White Background with Light Blue Accents) */}
+        {/* HERO BANNER SECTION */}
         <section className="relative overflow-hidden rounded-3xl bg-white dark:bg-slate-900 border border-sky-200/80 dark:border-slate-800 text-slate-900 dark:text-slate-100 p-8 sm:p-14 shadow-lg shadow-sky-500/5">
           <div className="relative z-10 max-w-3xl space-y-6">
             
