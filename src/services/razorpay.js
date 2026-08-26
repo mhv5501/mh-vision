@@ -47,6 +47,7 @@ export const openRazorpayPayment = async ({ pdf, onSuccess, onError }) => {
     name: "MH VISION",
     description: `Buy & Download PDF: ${pdf.title}`,
     image: "/logo.jpg",
+    payment_capture: 1, // Automatically capture all payments instantly without manual intervention
     prefill: {
       name: "MH VISION Customer",
       email: "customer@mhvision.com",
