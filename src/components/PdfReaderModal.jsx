@@ -70,15 +70,6 @@ export const PdfReaderModal = ({ pdf, isOpen, onClose, userEmail }) => {
     return pdfUrl;
   };
 
-  // Helper to get raw attachment URL for Cloudinary PDFs
-  const getCloudinaryDownloadUrl = (pdfUrl) => {
-    if (!pdfUrl) return '';
-    if (pdfUrl.includes('cloudinary.com') && pdfUrl.includes('/upload/')) {
-      return pdfUrl.replace('/upload/', '/upload/fl_attachment/');
-    }
-    return pdfUrl;
-  };
-
   // Load PDF Document & Set Exact Total Page Count
   useEffect(() => {
     if (!isOpen || !pdf?.pdfUrl) return;
@@ -198,34 +189,33 @@ export const PdfReaderModal = ({ pdf, isOpen, onClose, userEmail }) => {
     }
   };
 
+  // Safe and clean PDF file downloader
   const handleDownloadPdf = async () => {
     if (!pdf?.pdfUrl) return;
-    
-    const downloadUrl = getCloudinaryDownloadUrl(pdf.pdfUrl);
+
+    const safeFilename = `${(pdf.title || 'MH_VISION_Document').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
 
     try {
-      const response = await fetch(downloadUrl);
+      const response = await fetch(pdf.pdfUrl);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const blob = await response.blob();
       
-      // Ensure correct MIME type
-      const pdfBlob = new Blob([blob], { type: 'application/pdf' });
+      const arrayBuffer = await response.arrayBuffer();
+      const pdfBlob = new Blob([arrayBuffer], { type: 'application/pdf' });
       const blobUrl = window.URL.createObjectURL(pdfBlob);
       
       const link = document.createElement('a');
       link.href = blobUrl;
-      const safeTitle = (pdf.title || 'document').replace(/[^a-zA-Z0-9_-]/g, '_');
-      link.download = `${safeTitle}.pdf`;
+      link.download = safeFilename;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       
       setTimeout(() => {
         window.URL.revokeObjectURL(blobUrl);
-      }, 5000);
+      }, 4000);
     } catch (err) {
-      console.warn("Direct blob download notice, opening attachment URL directly:", err);
-      window.open(downloadUrl, '_blank');
+      console.warn("Direct blob fetch notice, opening original PDF URL:", err);
+      window.open(pdf.pdfUrl, '_blank');
     }
   };
 
@@ -270,7 +260,7 @@ export const PdfReaderModal = ({ pdf, isOpen, onClose, userEmail }) => {
             <button
               onClick={handleDownloadPdf}
               className="flex items-center space-x-1 px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs shadow-md transition-all hover:scale-105"
-              title="Download Original PDF File"
+              title="Download PDF Document"
             >
               <Download className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Download PDF</span>
