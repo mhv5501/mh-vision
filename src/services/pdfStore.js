@@ -47,6 +47,7 @@ export const addPdf = async (pdfData) => {
     description: pdfData.description || '',
     price: Number(pdfData.price) || 0, // Price in Rupees ₹
     category: pdfData.category || 'General',
+    allowDownload: !!pdfData.allowDownload, // Allow customer download
     pdfUrl: pdfData.pdfUrl,
     coverUrl: pdfData.coverUrl || '',
     createdAt: new Date().toISOString(),
@@ -75,6 +76,7 @@ export const updatePdf = async (pdfId, pdfData) => {
     description: pdfData.description,
     price: Number(pdfData.price),
     category: pdfData.category,
+    allowDownload: !!pdfData.allowDownload, // Update allowDownload status
     updatedAt: new Date().toISOString()
   };
 
