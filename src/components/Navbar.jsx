@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
 import { useTheme } from '../context/ThemeContext';
-import { useAuth } from '../context/AuthContext';
-import { Sun, Moon, LogIn, LogOut, User, BookOpen, Home, Info } from 'lucide-react';
+import { Sun, Moon, BookOpen, Home, Info, Sparkles } from 'lucide-react';
 
-export const Navbar = ({ onOpenAuth, onOpenAdmin }) => {
+export const Navbar = () => {
   const { theme, toggleTheme } = useTheme();
-  const { currentUser, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const scrollToSection = (id) => {
@@ -71,43 +69,17 @@ export const Navbar = ({ onOpenAuth, onOpenAdmin }) => {
             </button>
           </nav>
 
-          {/* Controls: Theme Toggle & User Auth */}
+          {/* Controls: Theme Toggle */}
           <div className="flex items-center space-x-3">
             
             <button
               onClick={toggleTheme}
               title={`Switch to ${theme === 'dark' ? 'Light (White & Light Blue)' : 'Dark'} Mode`}
-              className="p-2.5 rounded-xl bg-sky-50 dark:bg-slate-800 text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-slate-700 hover:bg-sky-100 transition-colors shadow-xs"
+              className="p-2.5 rounded-xl bg-sky-50 dark:bg-slate-800 text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-slate-700 hover:bg-sky-100 transition-colors shadow-xs flex items-center space-x-2"
             >
               {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5 text-sky-600" />}
+              <span className="text-xs font-bold hidden sm:inline">{theme === 'dark' ? 'Light' : 'Dark'}</span>
             </button>
-
-            {currentUser ? (
-              <div className="flex items-center space-x-2">
-                <div className="hidden sm:flex items-center space-x-2 bg-sky-50 dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-sky-200 dark:border-slate-700">
-                  <User className="w-4 h-4 text-sky-600 dark:text-sky-400" />
-                  <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[120px]">
-                    {currentUser.displayName || currentUser.email?.split('@')[0]}
-                  </span>
-                </div>
-                <button
-                  onClick={logout}
-                  title="Sign Out"
-                  className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/20 hover:bg-red-100 text-xs font-semibold transition-all"
-                >
-                  <LogOut className="w-4 h-4" />
-                  <span className="hidden sm:inline">Logout</span>
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={onOpenAuth}
-                className="flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-bold text-sm shadow-md shadow-sky-500/20 transition-all hover:scale-[1.02]"
-              >
-                <LogIn className="w-4 h-4" />
-                <span>Sign In</span>
-              </button>
-            )}
 
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}

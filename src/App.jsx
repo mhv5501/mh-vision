@@ -2,29 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { PdfGrid } from './components/PdfGrid';
-import { PdfReaderModal } from './components/PdfReaderModal';
-import { AuthModal } from './components/AuthModal';
 import { AdminModal } from './components/AdminModal';
 import { AboutSection } from './components/AboutSection';
-import { useAuth } from './context/AuthContext';
 import { subscribeToPdfs } from './services/pdfStore';
 import { openRazorpayPayment } from './services/razorpay';
-import { Sparkles, ArrowRight } from 'lucide-react';
+import { watermarkAndDownloadPdf } from './services/watermark';
+import { Sparkles, ArrowRight, Download } from 'lucide-react';
 
 export default function App() {
   const [pdfs, setPdfs] = useState([]);
-  
-  // Modals state
-  const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
-  const [selectedReaderPdf, setSelectedReaderPdf] = useState(null);
+  const [downloadingPdfId, setDownloadingPdfId] = useState(null);
 
-  // Pending purchase PDF after authentication
-  const [pendingPurchasePdf, setPendingPurchasePdf] = useState(null);
-
-  const { currentUser, isPdfUnlocked } = useAuth();
-
-  // Real-time Firestore PDF subscription (only real uploaded PDFs)
+  // Real-time Firestore PDF subscription
   useEffect(() => {
     const unsub = subscribeToPdfs((pdfList) => {
       setPdfs(pdfList || []);
@@ -33,20 +23,40 @@ export default function App() {
     return () => unsub();
   }, []);
 
-  // Handle PDF Purchase Click
-  const handleBuyPdf = (pdf) => {
-    if (!currentUser) {
-      setPendingPurchasePdf(pdf);
-      setIsAuthOpen(true);
+  // Direct Purchase & Instant Watermarked Download
+  const handleBuyPdf = async (pdf) => {
+    const isFree = pdf.price === 0 || Number(pdf.price) === 0;
+
+    // Free PDF: Download immediately with watermark
+    if (isFree) {
+      setDownloadingPdfId(pdf.id);
+      try {
+        await watermarkAndDownloadPdf(pdf.pdfUrl, pdf.title);
+      } catch (err) {
+        console.error("Free download error:", err);
+        alert("Failed to download PDF. Please try again.");
+      } finally {
+        setDownloadingPdfId(null);
+      }
       return;
     }
 
+    // Paid PDF: Launch Razorpay payment directly (bypassing prefill prompts)
     openRazorpayPayment({
       pdf,
-      user: currentUser,
-      onSuccess: ({ pdf: purchasedPdf }) => {
-        alert(`🎉 Purchase Successful! "${purchasedPdf.title}" is now unlocked for your account across all devices.`);
-        setSelectedReaderPdf(purchasedPdf);
+      onSuccess: async ({ pdf: purchasedPdf }) => {
+        setDownloadingPdfId(purchasedPdf.id);
+        try {
+          // Instant direct file download to customer device
+          await watermarkAndDownloadPdf(purchasedPdf.pdfUrl, purchasedPdf.title);
+          alert(`🎉 Payment Successful! "${purchasedPdf.title}" has been watermarked and downloaded to your device.`);
+        } catch (err) {
+          console.error("Post-payment download error:", err);
+          alert("Payment received! Opening direct download URL.");
+          window.open(purchasedPdf.pdfUrl, '_blank');
+        } finally {
+          setDownloadingPdfId(null);
+        }
       },
       onError: (err) => {
         if (!err.message?.includes('cancelled')) {
@@ -54,16 +64,6 @@ export default function App() {
         }
       }
     });
-  };
-
-  const handleAuthSuccess = () => {
-    if (pendingPurchasePdf) {
-      const pdfToBuy = pendingPurchasePdf;
-      setPendingPurchasePdf(null);
-      setTimeout(() => {
-        handleBuyPdf(pdfToBuy);
-      }, 400);
-    }
   };
 
   const scrollToCollection = () => {
@@ -75,14 +75,19 @@ export default function App() {
     <div className="min-h-screen flex flex-col bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans selection:bg-sky-400 selection:text-white">
       
       {/* Top Navbar */}
-      <Navbar
-        onOpenAuth={() => setIsAuthOpen(true)}
-        onOpenAdmin={() => setIsAdminOpen(true)}
-      />
+      <Navbar />
 
       {/* Main Single Page Content */}
       <main className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-12">
         
+        {/* Downloading Overlay Loading Toast */}
+        {downloadingPdfId && (
+          <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-5 py-3.5 rounded-2xl shadow-2xl border border-sky-500/30 flex items-center space-x-3 animate-bounce">
+            <div className="animate-spin rounded-full h-5 w-5 border-2 border-sky-400 border-t-transparent" />
+            <span className="text-xs font-bold">Embedding MH VISION Watermark & Downloading PDF...</span>
+          </div>
+        )}
+
         {/* HERO BANNER SECTION */}
         <section className="relative overflow-hidden rounded-3xl bg-white dark:bg-slate-900 border border-sky-200/80 dark:border-slate-800 text-slate-900 dark:text-slate-100 p-8 sm:p-14 shadow-lg shadow-sky-500/5">
           <div className="relative z-10 max-w-3xl space-y-6">
@@ -97,7 +102,7 @@ export default function App() {
             </h1>
 
             <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 font-medium leading-relaxed max-w-2xl">
-              Unlock premium Malayalam PDF guides, current affairs, educational notes, and analysis. Purchase once and access seamlessly on any smartphone or computer logged into your account.
+              Buy & instantly download watermarked Malayalam PDF guides, notes, current affairs, and educational materials straight to your smartphone or desktop. No sign-up required.
             </p>
 
             <div className="flex flex-wrap gap-4 pt-2">
@@ -118,8 +123,6 @@ export default function App() {
         {/* PDF COLLECTION GRID */}
         <PdfGrid
           pdfs={pdfs}
-          isUnlocked={isPdfUnlocked}
-          onRead={(pdf) => setSelectedReaderPdf(pdf)}
           onBuy={handleBuyPdf}
         />
 
@@ -131,24 +134,11 @@ export default function App() {
       {/* Footer */}
       <Footer onOpenAdmin={() => setIsAdminOpen(true)} />
 
-      {/* Modals & Overlays */}
-      <AuthModal
-        isOpen={isAuthOpen}
-        onClose={() => setIsAuthOpen(false)}
-        onSuccess={handleAuthSuccess}
-      />
-
+      {/* Admin Panel Modal */}
       <AdminModal
         isOpen={isAdminOpen}
         onClose={() => setIsAdminOpen(false)}
         pdfs={pdfs}
-      />
-
-      <PdfReaderModal
-        pdf={selectedReaderPdf}
-        isOpen={!!selectedReaderPdf}
-        onClose={() => setSelectedReaderPdf(null)}
-        userEmail={currentUser?.email}
       />
 
     </div>

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { PdfCard } from './PdfCard';
 import { Search, BookOpen, Sparkles } from 'lucide-react';
 
-export const PdfGrid = ({ pdfs, isUnlocked, onRead, onBuy }) => {
+export const PdfGrid = ({ pdfs, onBuy }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
 
@@ -26,7 +26,7 @@ export const PdfGrid = ({ pdfs, isUnlocked, onRead, onBuy }) => {
             <span>PDF Collection</span>
           </h2>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Explore Malayalam knowledge guides, notes & current affairs
+            Buy once & instantly download watermarked PDF guides directly to your device
           </p>
         </div>
 
@@ -72,8 +72,6 @@ export const PdfGrid = ({ pdfs, isUnlocked, onRead, onBuy }) => {
             <PdfCard
               key={pdf.id}
               pdf={pdf}
-              isUnlocked={isUnlocked(pdf.id, pdf.price === 0)}
-              onRead={onRead}
               onBuy={onBuy}
             />
           ))}

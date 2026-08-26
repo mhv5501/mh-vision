@@ -23,13 +23,12 @@ export const loadRazorpaySdk = () => {
 };
 
 /**
- * Initiates Razorpay payment directly into payment selection
+ * Initiates Razorpay payment directly into payment selection without prefill prompts
  * @param {object} pdf - PDF object { id, title, price, ... }
- * @param {object} user - Logged in user object { uid, email, displayName, phoneNumber }
  * @param {function} onSuccess - Callback when payment succeeds
  * @param {function} onError - Callback when payment fails or cancels
  */
-export const openRazorpayPayment = async ({ pdf, user, onSuccess, onError }) => {
+export const openRazorpayPayment = async ({ pdf, onSuccess, onError }) => {
   const loaded = await loadRazorpaySdk();
 
   if (!loaded || !window.Razorpay) {
@@ -40,27 +39,31 @@ export const openRazorpayPayment = async ({ pdf, user, onSuccess, onError }) => 
   }
 
   const amountInPaisa = Math.round(Number(pdf.price) * 100);
-  const userContact = user?.phoneNumber || "9496001234";
 
   const options = {
     key: RAZORPAY_KEY_ID,
     amount: amountInPaisa,
     currency: "INR",
     name: "MH VISION",
-    description: `Unlock PDF: ${pdf.title}`,
+    description: `Buy & Download PDF: ${pdf.title}`,
     image: "/logo.jpg",
     prefill: {
-      name: user?.displayName || user?.email?.split('@')[0] || "Customer",
-      email: user?.email || "customer@mhvision.com",
-      contact: userContact
+      name: "MH VISION Customer",
+      email: "customer@mhvision.com",
+      contact: "9496001234" // Valid formatted 10-digit number to bypass Razorpay contact input prompt
     },
     readonly: {
       contact: true,
       email: true,
       name: true
     },
+    hidden: {
+      contact: true,
+      email: true,
+      name: true
+    },
     theme: {
-      color: "#0ea5e9"
+      color: "#0ea5e9" // Light Blue theme color
     },
     config: {
       display: {
@@ -83,11 +86,13 @@ export const openRazorpayPayment = async ({ pdf, user, onSuccess, onError }) => 
     handler: async function (response) {
       try {
         const paymentId = response.razorpay_payment_id;
-        await recordPurchase(user.uid, user.email, pdf.id, pdf.price, paymentId);
+        // Record purchase in Firestore analytics
+        await recordPurchase('guest_user', 'guest@mhvision.com', pdf.id, pdf.price, paymentId);
         if (onSuccess) onSuccess({ paymentId, pdf });
       } catch (err) {
-        console.error("Error saving purchase to database:", err);
-        if (onError) onError(err);
+        console.error("Error saving purchase analytics:", err);
+        // Still proceed with download even if analytics recording encounters a notice
+        if (onSuccess) onSuccess({ paymentId: response.razorpay_payment_id, pdf });
       }
     },
     modal: {
