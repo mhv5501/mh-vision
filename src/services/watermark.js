@@ -13,12 +13,18 @@ export const watermarkAndDownloadPdf = async (pdfUrl, pdfTitle) => {
   const safeFilename = `${(pdfTitle || 'MH_VISION_Document').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
 
   try {
-    // 1. Fetch PDF ArrayBuffer with CORS
-    const response = await fetch(pdfUrl, { mode: 'cors' });
+    // 1. Fetch PDF ArrayBuffer
+    const response = await fetch(pdfUrl);
     if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
+    
     const existingPdfBytes = await response.arrayBuffer();
 
-    // 2. Load Document with pdf-lib (ignoring any existing encryption flags)
+    // Ensure we actually received valid non-zero PDF bytes
+    if (!existingPdfBytes || existingPdfBytes.byteLength < 100) {
+      throw new Error("Received empty or invalid PDF bytes from source.");
+    }
+
+    // 2. Load Document with pdf-lib
     const pdfDoc = await PDFDocument.load(existingPdfBytes, { ignoreEncryption: true });
     const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
     const pages = pdfDoc.getPages();
@@ -71,35 +77,17 @@ export const watermarkAndDownloadPdf = async (pdfUrl, pdfTitle) => {
 
     return true;
   } catch (err) {
-    console.warn("Client pdf-lib watermarking notice, triggering clean Blob fallback:", err);
+    console.warn("Client watermarking notice, using direct URL download fallback:", err);
 
-    try {
-      const res = await fetch(pdfUrl);
-      const blob = await res.blob();
-      const pdfBlob = new Blob([blob], { type: 'application/pdf' });
-      const blobUrl = window.URL.createObjectURL(pdfBlob);
+    // Reliable fallback: Direct download of the full Cloudinary PDF file
+    const link = document.createElement('a');
+    link.href = pdfUrl;
+    link.download = safeFilename;
+    link.rel = 'noopener noreferrer';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = safeFilename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      setTimeout(() => {
-        window.URL.revokeObjectURL(blobUrl);
-      }, 5000);
-      return true;
-    } catch (fallbackErr) {
-      console.error("Download fallback error:", fallbackErr);
-      // Final safe download trigger without opening new tab
-      const link = document.createElement('a');
-      link.href = pdfUrl;
-      link.download = safeFilename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      return false;
-    }
+    return false;
   }
 };
