@@ -39,7 +39,7 @@ export const subscribeToPdfs = (callback) => {
 };
 
 /**
- * Add a new PDF (Admin)
+ * Add a new PDF or Multi-PDF Bundle Package (Admin)
  */
 export const addPdf = async (pdfData) => {
   const docData = {
@@ -47,7 +47,9 @@ export const addPdf = async (pdfData) => {
     description: pdfData.description || '',
     price: Number(pdfData.price) || 0, // Price in Rupees ₹
     category: pdfData.category || 'General',
-    pdfUrl: pdfData.pdfUrl,
+    isBundle: !!pdfData.isBundle, // Flag for multi-PDF bundle package
+    bundleFiles: pdfData.bundleFiles || [], // Array of [{ name: '...', url: '...' }]
+    pdfUrl: pdfData.pdfUrl || (pdfData.bundleFiles?.[0]?.url || ''),
     coverUrl: pdfData.coverUrl || '',
     createdAt: new Date().toISOString(),
     salesCount: 0
@@ -66,7 +68,7 @@ export const addPdf = async (pdfData) => {
 };
 
 /**
- * Update an existing PDF (Admin)
+ * Update an existing PDF or PDF Bundle Package (Admin)
  */
 export const updatePdf = async (pdfId, pdfData) => {
   const pdfRef = doc(db, PDFS_COLLECTION, pdfId);
@@ -75,9 +77,11 @@ export const updatePdf = async (pdfId, pdfData) => {
     description: pdfData.description,
     price: Number(pdfData.price),
     category: pdfData.category,
+    isBundle: !!pdfData.isBundle,
     updatedAt: new Date().toISOString()
   };
 
+  if (pdfData.bundleFiles) updateFields.bundleFiles = pdfData.bundleFiles;
   if (pdfData.pdfUrl) updateFields.pdfUrl = pdfData.pdfUrl;
   if (pdfData.coverUrl) updateFields.coverUrl = pdfData.coverUrl;
 

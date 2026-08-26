@@ -1,12 +1,12 @@
+import { PDFDocument, rgb, degrees, StandardFonts } from 'pdf-lib';
+
 /**
  * Normalizes Cloudinary PDF URLs so that both raw and image resource types download cleanly
- * @param {string} url - Original URL stored in Firestore
- * @returns {string} - Clean valid Cloudinary URL
  */
 export const getCleanCloudinaryUrl = (url) => {
   if (!url) return '';
   
-  // For RAW resources: DO NOT add fl_attachment (it causes HTTP 400 ERR_INVALID_RESPONSE on Cloudinary raw endpoints)
+  // For RAW resources: DO NOT add fl_attachment (causes HTTP 400 ERR_INVALID_RESPONSE on Cloudinary raw endpoints)
   if (url.includes('/raw/upload/')) {
     return url.replace('/fl_attachment/', '/');
   }
@@ -20,11 +20,8 @@ export const getCleanCloudinaryUrl = (url) => {
 };
 
 /**
- * Direct Bulletproof PDF File Downloader
- * Converts Cloudinary media URLs into direct attachment download streams
- * so that the browser downloads the original complete PDF file directly to the customer's device.
- * 
- * @param {string} pdfUrl - The PDF URL stored in Firestore
+ * Watermarks a single PDF document with clean MH VISION brand text and triggers direct device download.
+ * @param {string} pdfUrl - The original PDF URL
  * @param {string} pdfTitle - Title of the PDF document for naming the download file
  */
 export const watermarkAndDownloadPdf = async (pdfUrl, pdfTitle) => {
@@ -37,14 +34,55 @@ export const watermarkAndDownloadPdf = async (pdfUrl, pdfTitle) => {
   const finalDownloadUrl = getCleanCloudinaryUrl(pdfUrl);
 
   try {
-    // 1. Fetch PDF as Blob
+    // 1. Fetch PDF ArrayBuffer
     const response = await fetch(finalDownloadUrl);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     
-    const blob = await response.blob();
-    
-    // Ensure Blob has explicit application/pdf MIME type
-    const pdfBlob = new Blob([blob], { type: 'application/pdf' });
+    const existingPdfBytes = await response.arrayBuffer();
+
+    // Ensure valid non-zero PDF bytes
+    if (!existingPdfBytes || existingPdfBytes.byteLength < 100) {
+      throw new Error("Received empty or invalid PDF bytes from source.");
+    }
+
+    // 2. Load Document with pdf-lib
+    const pdfDoc = await PDFDocument.load(existingPdfBytes, { ignoreEncryption: true });
+    const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    const pages = pdfDoc.getPages();
+
+    // 3. Draw clean MH VISION brand watermark on every page
+    pages.forEach((page) => {
+      const { width, height } = page.getSize();
+      const fontSize = Math.max(14, Math.round(width / 26));
+
+      // Watermark 1 (Upper Center)
+      page.drawText('MH VISION OFFICIAL • MALAYALAM KNOWLEDGE HUB', {
+        x: Math.max(20, width / 8),
+        y: Math.min(height - 50, (height / 3) * 2),
+        size: fontSize,
+        font: font,
+        color: rgb(0.05, 0.65, 0.91),
+        opacity: 0.22,
+        rotate: degrees(-30)
+      });
+
+      // Watermark 2 (Lower Center)
+      page.drawText('MH VISION LICENSED COPY • DO NOT DISTRIBUTE', {
+        x: Math.max(20, width / 8),
+        y: Math.max(50, height / 3),
+        size: fontSize,
+        font: font,
+        color: rgb(0.05, 0.65, 0.91),
+        opacity: 0.22,
+        rotate: degrees(-30)
+      });
+    });
+
+    // 4. Save modified PDF bytes
+    const pdfBytes = await pdfDoc.save();
+
+    // 5. Trigger instant direct device download
+    const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' });
     const blobUrl = window.URL.createObjectURL(pdfBlob);
 
     const link = document.createElement('a');
@@ -62,7 +100,7 @@ export const watermarkAndDownloadPdf = async (pdfUrl, pdfTitle) => {
   } catch (err) {
     console.warn("Direct blob fetch notice, triggering native link download:", err);
 
-    // 2. Direct browser link trigger with clean URL (no new tab popups)
+    // 2. Direct browser link trigger with clean URL
     const link = document.createElement('a');
     link.href = finalDownloadUrl;
     link.download = safeFilename;
@@ -72,4 +110,31 @@ export const watermarkAndDownloadPdf = async (pdfUrl, pdfTitle) => {
 
     return true;
   }
+};
+
+/**
+ * Watermarks and downloads a Multi-PDF Bundle Package directly to the customer's device.
+ * @param {Array<{name: string, url: string}>} bundleFiles - Array of PDF objects in the bundle
+ * @param {string} bundleTitle - Main Title of the PDF Bundle
+ */
+export const watermarkAndDownloadBundle = async (bundleFiles, bundleTitle) => {
+  if (!bundleFiles || !Array.isArray(bundleFiles) || bundleFiles.length === 0) {
+    alert("Bundle files list is empty. Contact support.");
+    return false;
+  }
+
+  for (let i = 0; i < bundleFiles.length; i++) {
+    const file = bundleFiles[i];
+    const fileTitle = `${bundleTitle || 'Bundle'}_Part_${i + 1}_${file.name || 'Document'}`;
+    
+    // Watermark and download file
+    await watermarkAndDownloadPdf(file.url, fileTitle);
+
+    // Short 800ms pause between multiple file downloads to let the browser trigger device downloads cleanly
+    if (i < bundleFiles.length - 1) {
+      await new Promise((res) => setTimeout(res, 800));
+    }
+  }
+
+  return true;
 };

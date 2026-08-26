@@ -23,7 +23,9 @@ import {
   AlertCircle,
   FileText,
   Eye,
-  EyeOff
+  EyeOff,
+  PackageCheck,
+  Layers
 } from 'lucide-react';
 
 export const AdminModal = ({ isOpen, onClose, pdfs }) => {
@@ -36,7 +38,9 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
   const [adminTab, setAdminTab] = useState('analytics');
   const [analytics, setAnalytics] = useState({ totalRevenue: 0, totalSalesCount: 0 });
 
-  const [pdfFile, setPdfFile] = useState(null);
+  // Upload Form State
+  const [isBundle, setIsBundle] = useState(false);
+  const [pdfFiles, setPdfFiles] = useState([]);
   const [coverFile, setCoverFile] = useState(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -99,10 +103,19 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
     }
   };
 
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (isBundle) {
+      setPdfFiles(files);
+    } else {
+      setPdfFiles(files.slice(0, 1));
+    }
+  };
+
   const handleUpload = async (e) => {
     e.preventDefault();
-    if (!pdfFile) {
-      alert("Please select a PDF file to upload.");
+    if (pdfFiles.length === 0) {
+      alert("Please select at least one PDF file to upload.");
       return;
     }
 
@@ -112,7 +125,19 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
     setUploadError('');
 
     try {
-      const pdfRes = await uploadToCloudinary(pdfFile, 'auto', (p) => setUploadProgress(p));
+      const uploadedBundleFiles = [];
+
+      for (let i = 0; i < pdfFiles.length; i++) {
+        const file = pdfFiles[i];
+        const res = await uploadToCloudinary(file, 'auto', (p) => {
+          const overall = Math.round(((i + p / 100) / pdfFiles.length) * 100);
+          setUploadProgress(overall);
+        });
+        uploadedBundleFiles.push({
+          name: file.name.replace(/\.pdf$/i, ''),
+          url: res.url
+        });
+      }
 
       let coverUrl = '';
       if (coverFile) {
@@ -125,16 +150,19 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
         description,
         price: Number(price) || 0,
         category,
-        pdfUrl: pdfRes.url,
+        isBundle: isBundle || pdfFiles.length > 1,
+        bundleFiles: uploadedBundleFiles,
+        pdfUrl: uploadedBundleFiles[0]?.url || '',
         coverUrl: coverUrl
       });
 
-      setUploadSuccess(`PDF "${title}" uploaded & published live!`);
-      setPdfFile(null);
+      setUploadSuccess(`Published "${title}" live! (${uploadedBundleFiles.length} PDF ${uploadedBundleFiles.length > 1 ? 'Files in Bundle' : 'File'})`);
+      setPdfFiles([]);
       setCoverFile(null);
       setTitle('');
       setDescription('');
       setPrice('');
+      setIsBundle(false);
     } catch (err) {
       console.error("Upload error:", err);
       if (err.message?.includes('Permission') || err.message?.includes('permission-denied')) {
@@ -157,7 +185,8 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
         title: editingPdf.title,
         description: editingPdf.description,
         price: Number(editingPdf.price) || 0,
-        category: editingPdf.category
+        category: editingPdf.category,
+        isBundle: !!editingPdf.isBundle
       });
       alert("PDF updated successfully!");
       setEditingPdf(null);
@@ -271,7 +300,7 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
                 <h3 className="text-xl font-bold text-sky-600 dark:text-sky-400 flex items-center space-x-2">
                   <span>MH VISION Control Center</span>
                 </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Revenue analytics, PDF upload & store management</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Revenue analytics, PDF/Bundle upload & store management</p>
               </div>
 
               <div className="flex items-center space-x-1 overflow-x-auto bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
@@ -291,7 +320,7 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
                   }`}
                 >
                   <UploadCloud className="w-3.5 h-3.5" />
-                  <span>Upload PDF</span>
+                  <span>Upload PDF / Bundle</span>
                 </button>
                 <button
                   onClick={() => setAdminTab('manage')}
@@ -336,7 +365,7 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
                         <ShoppingBag className="w-7 h-7" />
                       </div>
                       <div>
-                        <span className="block text-xs font-semibold text-slate-500 dark:text-slate-400">Total Direct Downloads</span>
+                        <span className="block text-xs font-semibold text-slate-500 dark:text-slate-400">Total Direct Purchases</span>
                         <span className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400">{analytics.totalSalesCount || 0}</span>
                       </div>
                     </div>
@@ -346,22 +375,38 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
                         <BookOpen className="w-7 h-7" />
                       </div>
                       <div>
-                        <span className="block text-xs font-semibold text-slate-500 dark:text-slate-400">Active PDFs Published</span>
+                        <span className="block text-xs font-semibold text-slate-500 dark:text-slate-400">Active Listings Published</span>
                         <span className="text-2xl font-extrabold text-blue-600 dark:text-blue-400">{pdfs.length}</span>
                       </div>
                     </div>
                   </div>
 
                   <div className="p-4 rounded-2xl bg-sky-50/80 dark:bg-slate-950 border border-sky-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400 space-y-1">
-                    <p className="font-bold text-sky-700 dark:text-sky-400">💡 Instant File Download Store</p>
-                    <p>PDF files are stored on Cloudinary (`wz1dlstf`) and registered in Firestore. Customer purchases trigger direct watermarked file downloads straight to their devices.</p>
+                    <p className="font-bold text-sky-700 dark:text-sky-400">💡 PDF & Multi-PDF Bundle Package Store</p>
+                    <p>Upload single PDFs or multi-file Bundle Packages under a single price point. Customer purchases trigger instant watermarked downloads of all files to their devices.</p>
                   </div>
                 </div>
               )}
 
               {adminTab === 'upload' && (
                 <form onSubmit={handleUpload} className="space-y-4 max-w-2xl mx-auto">
-                  <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">Upload New PDF</h4>
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                      {isBundle ? 'Upload PDF Bundle Package' : 'Upload Single PDF'}
+                    </h4>
+
+                    {/* BUNDLE TOGGLE SWITCH */}
+                    <button
+                      type="button"
+                      onClick={() => { setIsBundle(!isBundle); setPdfFiles([]); }}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all ${
+                        isBundle ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                      }`}
+                    >
+                      <Layers className="w-3.5 h-3.5" />
+                      <span>{isBundle ? '📦 PDF Bundle Mode: ON' : 'Single PDF Mode'}</span>
+                    </button>
+                  </div>
 
                   {uploadSuccess && (
                     <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-xs flex items-center space-x-2">
@@ -378,11 +423,13 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
                   )}
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">PDF Title *</label>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      {isBundle ? 'Bundle Title (e.g. Kerala PSC Super Pack 2026)' : 'PDF Title *'}
+                    </label>
                     <input
                       type="text"
                       required
-                      placeholder="e.g. Current Affairs 2026 Malayalam Guide"
+                      placeholder={isBundle ? "e.g. Current Affairs + GK 3-in-1 Bundle" : "e.g. Current Affairs 2026 Guide"}
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
                       className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-sky-500"
@@ -391,12 +438,12 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Price in Rupees (₹) *</label>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Price for Package in ₹ *</label>
                       <input
                         type="number"
                         required
                         min="0"
-                        placeholder="e.g. 49 (0 for free)"
+                        placeholder="e.g. 99 (0 for free)"
                         value={price}
                         onChange={(e) => setPrice(e.target.value)}
                         className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-sky-500"
@@ -415,6 +462,7 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
                         <option value="Current Affairs">Current Affairs</option>
                         <option value="History">History</option>
                         <option value="Science & Tech">Science & Tech</option>
+                        <option value="Bundle Pack">Bundle Pack</option>
                       </select>
                     </div>
                   </div>
@@ -423,7 +471,7 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
                     <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Description</label>
                     <textarea
                       rows={3}
-                      placeholder="Brief overview of what the PDF covers..."
+                      placeholder={isBundle ? "List what's included in this PDF bundle package..." : "Brief overview of what the PDF covers..."}
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
                       className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-sky-500"
@@ -433,14 +481,22 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="p-4 bg-slate-50 dark:bg-slate-950 border border-dashed border-slate-300 dark:border-slate-800 rounded-2xl text-center">
                       <FileText className="w-8 h-8 text-sky-500 mx-auto mb-2" />
-                      <span className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Select PDF File *</span>
+                      <span className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        {isBundle ? 'Select Multiple PDF Files *' : 'Select PDF File *'}
+                      </span>
                       <input
                         type="file"
                         accept=".pdf"
                         required
-                        onChange={(e) => setPdfFile(e.target.files[0])}
+                        multiple={isBundle}
+                        onChange={handleFileChange}
                         className="text-xs text-slate-500 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-sky-500 file:text-white hover:file:bg-sky-600 cursor-pointer"
                       />
+                      {pdfFiles.length > 0 && (
+                        <p className="text-[11px] font-bold text-sky-600 dark:text-sky-400 mt-2">
+                          {pdfFiles.length} PDF {pdfFiles.length > 1 ? 'Files Selected' : 'File Selected'}
+                        </p>
+                      )}
                     </div>
 
                     <div className="p-4 bg-slate-50 dark:bg-slate-950 border border-dashed border-slate-300 dark:border-slate-800 rounded-2xl text-center">
@@ -458,7 +514,7 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
                   {uploading && (
                     <div className="space-y-1">
                       <div className="flex justify-between text-xs text-sky-600 dark:text-sky-400 font-semibold">
-                        <span>Uploading to Cloudinary...</span>
+                        <span>Uploading Files to Cloudinary...</span>
                         <span>{uploadProgress}%</span>
                       </div>
                       <div className="w-full bg-slate-200 dark:bg-slate-950 rounded-full h-2 overflow-hidden">
@@ -473,14 +529,14 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
                     className="w-full py-3 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-bold rounded-xl text-sm shadow-md transition-all flex items-center justify-center space-x-2"
                   >
                     <UploadCloud className="w-4 h-4" />
-                    <span>{uploading ? 'Uploading...' : 'Publish PDF Live'}</span>
+                    <span>{uploading ? 'Uploading Bundle...' : isBundle ? 'Publish PDF Bundle Live' : 'Publish PDF Live'}</span>
                   </button>
                 </form>
               )}
 
               {adminTab === 'manage' && (
                 <div className="space-y-4">
-                  <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Uploaded PDFs Manager</h4>
+                  <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Uploaded Products Manager</h4>
 
                   {editingPdf && (
                     <form onSubmit={handleUpdate} className="p-4 bg-sky-50/50 dark:bg-slate-950 border border-sky-300 dark:border-slate-800 rounded-xl space-y-3 mb-6">
@@ -521,7 +577,14 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
                     {pdfs.map((pdf) => (
                       <div key={pdf.id} className="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div>
-                          <h5 className="font-bold text-sm text-slate-900 dark:text-slate-200">{pdf.title}</h5>
+                          <div className="flex items-center space-x-2">
+                            <h5 className="font-bold text-sm text-slate-900 dark:text-slate-200">{pdf.title}</h5>
+                            {pdf.isBundle && (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300">
+                                📦 Bundle ({pdf.bundleFiles?.length || 1} PDFs)
+                              </span>
+                            )}
+                          </div>
                           <div className="flex items-center space-x-3 text-xs mt-0.5">
                             <span className="text-sky-600 dark:text-sky-400 font-semibold">₹{pdf.price}</span>
                             <span className="text-slate-500">Category: {pdf.category || 'General'}</span>

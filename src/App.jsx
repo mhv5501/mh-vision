@@ -6,13 +6,13 @@ import { AdminModal } from './components/AdminModal';
 import { AboutSection } from './components/AboutSection';
 import { subscribeToPdfs } from './services/pdfStore';
 import { openRazorpayPayment } from './services/razorpay';
-import { watermarkAndDownloadPdf } from './services/watermark';
-import { Sparkles, ArrowRight, Download } from 'lucide-react';
+import { watermarkAndDownloadPdf, watermarkAndDownloadBundle } from './services/watermark';
+import { Sparkles, ArrowRight } from 'lucide-react';
 
 export default function App() {
   const [pdfs, setPdfs] = useState([]);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
-  const [downloadingPdfId, setDownloadingPdfId] = useState(null);
+  const [downloadingInfo, setDownloadingInfo] = useState(null);
 
   // Real-time Firestore PDF subscription
   useEffect(() => {
@@ -23,40 +23,52 @@ export default function App() {
     return () => unsub();
   }, []);
 
-  // Direct Purchase & Instant Watermarked Download
+  // Direct Purchase & Instant Watermarked Download (Single PDF or Bundle Package)
   const handleBuyPdf = async (pdf) => {
     const isFree = pdf.price === 0 || Number(pdf.price) === 0;
 
-    // Free PDF: Download immediately with watermark
-    if (isFree) {
-      setDownloadingPdfId(pdf.id);
-      try {
-        await watermarkAndDownloadPdf(pdf.pdfUrl, pdf.title);
-      } catch (err) {
-        console.error("Free download error:", err);
-        alert("Failed to download PDF. Please try again.");
-      } finally {
-        setDownloadingPdfId(null);
+    const triggerDownloadFlow = async (targetPdf) => {
+      if (targetPdf.isBundle && targetPdf.bundleFiles?.length > 0) {
+        setDownloadingInfo({
+          id: targetPdf.id,
+          message: `Watermarking & Downloading ${targetPdf.bundleFiles.length} Bundle PDFs...`
+        });
+        try {
+          await watermarkAndDownloadBundle(targetPdf.bundleFiles, targetPdf.title);
+          alert(`🎉 Payment Successful! All ${targetPdf.bundleFiles.length} PDFs in "${targetPdf.title}" have been watermarked & downloaded.`);
+        } catch (err) {
+          console.error("Bundle download error:", err);
+          alert("Payment received! Triggering direct downloads.");
+        } finally {
+          setDownloadingInfo(null);
+        }
+      } else {
+        setDownloadingInfo({
+          id: targetPdf.id,
+          message: `Embedding MH VISION Watermark & Downloading PDF...`
+        });
+        try {
+          await watermarkAndDownloadPdf(targetPdf.pdfUrl, targetPdf.title);
+        } catch (err) {
+          console.error("Single PDF download error:", err);
+          alert("Failed to download PDF. Please try again.");
+        } finally {
+          setDownloadingInfo(null);
+        }
       }
+    };
+
+    // Free PDF or Free Bundle: Download immediately
+    if (isFree) {
+      await triggerDownloadFlow(pdf);
       return;
     }
 
-    // Paid PDF: Launch Razorpay payment directly (bypassing prefill prompts)
+    // Paid PDF or Paid Bundle: Launch Razorpay payment directly (bypassing prefill prompts)
     openRazorpayPayment({
       pdf,
       onSuccess: async ({ pdf: purchasedPdf }) => {
-        setDownloadingPdfId(purchasedPdf.id);
-        try {
-          // Instant direct file download to customer device
-          await watermarkAndDownloadPdf(purchasedPdf.pdfUrl, purchasedPdf.title);
-          alert(`🎉 Payment Successful! "${purchasedPdf.title}" has been watermarked and downloaded to your device.`);
-        } catch (err) {
-          console.error("Post-payment download error:", err);
-          alert("Payment received! Opening direct download URL.");
-          window.open(purchasedPdf.pdfUrl, '_blank');
-        } finally {
-          setDownloadingPdfId(null);
-        }
+        await triggerDownloadFlow(purchasedPdf);
       },
       onError: (err) => {
         if (!err.message?.includes('cancelled')) {
@@ -81,10 +93,10 @@ export default function App() {
       <main className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-12">
         
         {/* Downloading Overlay Loading Toast */}
-        {downloadingPdfId && (
+        {downloadingInfo && (
           <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-5 py-3.5 rounded-2xl shadow-2xl border border-sky-500/30 flex items-center space-x-3 animate-bounce">
             <div className="animate-spin rounded-full h-5 w-5 border-2 border-sky-400 border-t-transparent" />
-            <span className="text-xs font-bold">Embedding MH VISION Watermark & Downloading PDF...</span>
+            <span className="text-xs font-bold">{downloadingInfo.message}</span>
           </div>
         )}
 
@@ -102,7 +114,7 @@ export default function App() {
             </h1>
 
             <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 font-medium leading-relaxed max-w-2xl">
-              Buy & instantly download watermarked Malayalam PDF guides, notes, current affairs, and educational materials straight to your smartphone or desktop. No sign-up required.
+              Buy & instantly download single watermarked Malayalam PDFs or multi-file Bundle Packages straight to your smartphone or desktop. No sign-up required.
             </p>
 
             <div className="flex flex-wrap gap-4 pt-2">
@@ -110,7 +122,7 @@ export default function App() {
                 onClick={scrollToCollection}
                 className="flex items-center space-x-2 px-6 py-3.5 rounded-2xl bg-sky-500 hover:bg-sky-600 text-white font-black text-sm shadow-md shadow-sky-500/20 transition-all hover:scale-[1.02]"
               >
-                <span>Browse PDFs</span>
+                <span>Browse Collection & Bundles</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
