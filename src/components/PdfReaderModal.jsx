@@ -70,6 +70,15 @@ export const PdfReaderModal = ({ pdf, isOpen, onClose, userEmail }) => {
     return pdfUrl;
   };
 
+  // Helper to get raw attachment URL for Cloudinary PDFs
+  const getCloudinaryDownloadUrl = (pdfUrl) => {
+    if (!pdfUrl) return '';
+    if (pdfUrl.includes('cloudinary.com') && pdfUrl.includes('/upload/')) {
+      return pdfUrl.replace('/upload/', '/upload/fl_attachment/');
+    }
+    return pdfUrl;
+  };
+
   // Load PDF Document & Set Exact Total Page Count
   useEffect(() => {
     if (!isOpen || !pdf?.pdfUrl) return;
@@ -191,20 +200,32 @@ export const PdfReaderModal = ({ pdf, isOpen, onClose, userEmail }) => {
 
   const handleDownloadPdf = async () => {
     if (!pdf?.pdfUrl) return;
+    
+    const downloadUrl = getCloudinaryDownloadUrl(pdf.pdfUrl);
+
     try {
-      const response = await fetch(pdf.pdfUrl);
+      const response = await fetch(downloadUrl);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const blob = await response.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
+      
+      // Ensure correct MIME type
+      const pdfBlob = new Blob([blob], { type: 'application/pdf' });
+      const blobUrl = window.URL.createObjectURL(pdfBlob);
+      
       const link = document.createElement('a');
       link.href = blobUrl;
-      link.download = `${pdf.title || 'document'}.pdf`;
+      const safeTitle = (pdf.title || 'document').replace(/[^a-zA-Z0-9_-]/g, '_');
+      link.download = `${safeTitle}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      window.URL.revokeObjectURL(blobUrl);
+      
+      setTimeout(() => {
+        window.URL.revokeObjectURL(blobUrl);
+      }, 5000);
     } catch (err) {
-      console.warn("Direct blob download notice, opening URL:", err);
-      window.open(pdf.pdfUrl, '_blank');
+      console.warn("Direct blob download notice, opening attachment URL directly:", err);
+      window.open(downloadUrl, '_blank');
     }
   };
 
@@ -249,7 +270,7 @@ export const PdfReaderModal = ({ pdf, isOpen, onClose, userEmail }) => {
             <button
               onClick={handleDownloadPdf}
               className="flex items-center space-x-1 px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs shadow-md transition-all hover:scale-105"
-              title="Download PDF Document"
+              title="Download Original PDF File"
             >
               <Download className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Download PDF</span>
