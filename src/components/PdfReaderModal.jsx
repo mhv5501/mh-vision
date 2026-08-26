@@ -199,8 +199,8 @@ export const PdfReaderModal = ({ pdf, isOpen, onClose, userEmail }) => {
       const response = await fetch(pdf.pdfUrl);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       
-      const arrayBuffer = await response.arrayBuffer();
-      const pdfBlob = new Blob([arrayBuffer], { type: 'application/pdf' });
+      const blob = await response.blob();
+      const pdfBlob = new Blob([blob], { type: 'application/pdf' });
       const blobUrl = window.URL.createObjectURL(pdfBlob);
       
       const link = document.createElement('a');
@@ -214,8 +214,15 @@ export const PdfReaderModal = ({ pdf, isOpen, onClose, userEmail }) => {
         window.URL.revokeObjectURL(blobUrl);
       }, 4000);
     } catch (err) {
-      console.warn("Direct blob fetch notice, opening original PDF URL:", err);
-      window.open(pdf.pdfUrl, '_blank');
+      console.warn("Direct blob fetch notice, downloading file:", err);
+      // Fallback: direct download link
+      const link = document.createElement('a');
+      link.href = pdf.pdfUrl;
+      link.target = '_blank';
+      link.download = safeFilename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
   };
 

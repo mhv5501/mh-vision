@@ -9,8 +9,10 @@ const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'ml_defau
  * @returns {Promise<{url: string, publicId: string, format: string}>}
  */
 export const uploadToCloudinary = async (file, resourceType = 'auto', onProgress) => {
-  // Determine resource type: 'raw' or 'auto' for PDFs, 'image' for images
-  const targetResourceType = file.type === 'application/pdf' ? 'auto' : resourceType;
+  // Store PDFs in Cloudinary's raw document storage so raw binary PDF download works 100%
+  const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+  const targetResourceType = isPdf ? 'raw' : (resourceType === 'auto' ? 'image' : resourceType);
+  
   const url = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${targetResourceType}/upload`;
   const formData = new FormData();
   
