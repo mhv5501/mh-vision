@@ -23,7 +23,8 @@ import {
   AlertCircle,
   FileText,
   Eye,
-  EyeOff
+  EyeOff,
+  Download
 } from 'lucide-react';
 
 export const AdminModal = ({ isOpen, onClose, pdfs }) => {
@@ -42,6 +43,7 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
   const [category, setCategory] = useState('General');
+  const [allowDownload, setAllowDownload] = useState(false); // Default: protected reading only
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState('');
@@ -55,7 +57,6 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
   const [passwordSuccess, setPasswordSuccess] = useState('');
   const [passwordError, setPasswordError] = useState('');
 
-  // Reset authentication state whenever modal closes
   useEffect(() => {
     if (!isOpen) {
       setIsAuthenticated(false);
@@ -126,16 +127,18 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
         description,
         price: Number(price) || 0,
         category,
+        allowDownload: allowDownload,
         pdfUrl: pdfRes.url,
         coverUrl: coverUrl
       });
 
-      setUploadSuccess(`PDF "${title}" uploaded to Cloudinary & published live!`);
+      setUploadSuccess(`PDF "${title}" uploaded & published live! (Download: ${allowDownload ? 'Allowed' : 'Disabled'})`);
       setPdfFile(null);
       setCoverFile(null);
       setTitle('');
       setDescription('');
       setPrice('');
+      setAllowDownload(false);
     } catch (err) {
       console.error("Upload error:", err);
       if (err.message?.includes('Permission') || err.message?.includes('permission-denied')) {
@@ -157,8 +160,9 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
       await updatePdf(editingPdf.id, {
         title: editingPdf.title,
         description: editingPdf.description,
-        price: editingPdf.price,
-        category: editingPdf.category
+        price: Number(editingPdf.price) || 0,
+        category: editingPdf.category,
+        allowDownload: !!editingPdf.allowDownload
       });
       alert("PDF updated successfully!");
       setEditingPdf(null);
@@ -362,7 +366,7 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
 
               {adminTab === 'upload' && (
                 <form onSubmit={handleUpload} className="space-y-4 max-w-2xl mx-auto">
-                  <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">Upload New PDF to Cloudinary</h4>
+                  <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">Upload New PDF</h4>
 
                   {uploadSuccess && (
                     <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-xs flex items-center space-x-2">
@@ -429,6 +433,29 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
                       onChange={(e) => setDescription(e.target.value)}
                       className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-sky-500"
                     />
+                  </div>
+
+                  {/* DOWNLOAD PERMISSION CHECKBOX */}
+                  <div className="p-3.5 bg-sky-50/80 dark:bg-slate-950 border border-sky-200 dark:border-slate-800 rounded-2xl flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 bg-sky-500/10 text-sky-600 dark:text-sky-400 rounded-xl">
+                        <Download className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <span className="block text-xs font-bold text-slate-900 dark:text-slate-100">Allow Customer File Download</span>
+                        <span className="block text-[11px] text-slate-500 dark:text-slate-400">If enabled, a Download button appears in the reader section.</span>
+                      </div>
+                    </div>
+                    
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={allowDownload}
+                        onChange={(e) => setAllowDownload(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-800 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-sky-500"></div>
+                    </label>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -514,17 +541,37 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
                         className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs"
                       />
 
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="editAllowDownload"
+                          checked={!!editingPdf.allowDownload}
+                          onChange={(e) => setEditingPdf({ ...editingPdf, allowDownload: e.target.checked })}
+                          className="rounded text-sky-500"
+                        />
+                        <label htmlFor="editAllowDownload" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                          Allow customers to download file
+                        </label>
+                      </div>
+
                       <button type="submit" className="px-4 py-2 bg-sky-500 text-white font-bold text-xs rounded-lg">Save Changes</button>
                     </form>
                   )}
 
                   <div className="space-y-3">
                     {pdfs.map((pdf) => (
-                      <div key={pdf.id} className="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl flex items-center justify-between gap-4">
+                      <div key={pdf.id} className="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div>
                           <h5 className="font-bold text-sm text-slate-900 dark:text-slate-200">{pdf.title}</h5>
-                          <span className="text-xs text-sky-600 dark:text-sky-400 font-semibold">₹{pdf.price}</span>
-                          <span className="text-xs text-slate-500 ml-3">Category: {pdf.category || 'General'}</span>
+                          <div className="flex items-center space-x-3 text-xs mt-0.5">
+                            <span className="text-sky-600 dark:text-sky-400 font-semibold">₹{pdf.price}</span>
+                            <span className="text-slate-500">Category: {pdf.category || 'General'}</span>
+                            <span className={`font-semibold px-2 py-0.5 rounded text-[10px] ${
+                              pdf.allowDownload ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-700'
+                            }`}>
+                              {pdf.allowDownload ? 'Download Enabled' : 'Download Disabled'}
+                            </span>
+                          </div>
                         </div>
 
                         <div className="flex items-center space-x-2">

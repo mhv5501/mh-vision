@@ -53,7 +53,15 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }) => {
       onClose();
     } catch (err) {
       console.error("Google Auth error:", err);
-      setError('Google Sign In failed.');
+      if (err.code === 'auth/operation-not-allowed') {
+        setError('Google Sign-In is disabled in Firebase Console. Please enable Google in Firebase Authentication settings.');
+      } else if (err.code === 'auth/popup-closed-by-user') {
+        setError('Sign-in window closed before completing.');
+      } else if (err.code === 'auth/unauthorized-domain') {
+        setError('This domain is not authorized for Google Sign-In in Firebase Console -> Auth Settings.');
+      } else {
+        setError(err.message || 'Google Sign In failed.');
+      }
     } finally {
       setLoading(false);
     }
