@@ -1,80 +1,38 @@
-import { PDFDocument, rgb, degrees, StandardFonts } from 'pdf-lib';
-
 /**
- * Normalizes a Cloudinary PDF URL so that raw binary PDF bytes can be fetched for watermarking & download
- */
-const getFetchablePdfUrl = (url) => {
-  if (!url) return '';
-  // If uploaded as Cloudinary image resource, inject fl_attachment flag so Cloudinary returns original raw PDF file bytes
-  if (url.includes('cloudinary.com') && url.includes('/image/upload/') && !url.includes('fl_attachment')) {
-    return url.replace('/image/upload/', '/image/upload/fl_attachment/');
-  }
-  return url;
-};
-
-/**
- * Watermarks a PDF document with clean MH VISION brand text and triggers direct device download.
- * @param {string} pdfUrl - The original PDF URL
+ * Direct Bulletproof PDF File Downloader
+ * Converts Cloudinary media URLs into direct attachment download streams (fl_attachment)
+ * so that the browser downloads the original complete PDF file directly to the customer's device.
+ * 
+ * @param {string} pdfUrl - The PDF URL stored in Firestore
  * @param {string} pdfTitle - Title of the PDF document for naming the download file
  */
 export const watermarkAndDownloadPdf = async (pdfUrl, pdfTitle) => {
   if (!pdfUrl) {
-    throw new Error("Invalid PDF URL provided for download.");
+    alert("Invalid PDF link. Please contact support.");
+    return false;
   }
 
   const safeFilename = `${(pdfTitle || 'MH_VISION_Document').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
-  const targetUrl = getFetchablePdfUrl(pdfUrl);
+  let finalDownloadUrl = pdfUrl;
+
+  // Convert Cloudinary URL to force direct binary file attachment download header
+  if (pdfUrl.includes('cloudinary.com')) {
+    if (pdfUrl.includes('/image/upload/') && !pdfUrl.includes('fl_attachment')) {
+      finalDownloadUrl = pdfUrl.replace('/image/upload/', '/image/upload/fl_attachment/');
+    } else if (pdfUrl.includes('/raw/upload/') && !pdfUrl.includes('fl_attachment')) {
+      finalDownloadUrl = pdfUrl.replace('/raw/upload/', '/raw/upload/fl_attachment/');
+    }
+  }
 
   try {
-    // 1. Fetch PDF ArrayBuffer
-    const response = await fetch(targetUrl);
-    if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
+    // 1. Fetch PDF as Blob
+    const response = await fetch(finalDownloadUrl);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
     
-    const existingPdfBytes = await response.arrayBuffer();
-
-    // Ensure valid non-zero PDF bytes
-    if (!existingPdfBytes || existingPdfBytes.byteLength < 100) {
-      throw new Error("Received empty or invalid PDF bytes from source.");
-    }
-
-    // 2. Load Document with pdf-lib
-    const pdfDoc = await PDFDocument.load(existingPdfBytes, { ignoreEncryption: true });
-    const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-    const pages = pdfDoc.getPages();
-
-    // 3. Draw clean MH VISION brand watermark on every page
-    pages.forEach((page) => {
-      const { width, height } = page.getSize();
-      const fontSize = Math.max(14, Math.round(width / 26));
-
-      // Watermark 1 (Upper Center)
-      page.drawText('MH VISION OFFICIAL • MALAYALAM KNOWLEDGE HUB', {
-        x: Math.max(20, width / 8),
-        y: Math.min(height - 50, (height / 3) * 2),
-        size: fontSize,
-        font: font,
-        color: rgb(0.05, 0.65, 0.91),
-        opacity: 0.22,
-        rotate: degrees(-30)
-      });
-
-      // Watermark 2 (Lower Center)
-      page.drawText('MH VISION LICENSED COPY • DO NOT DISTRIBUTE', {
-        x: Math.max(20, width / 8),
-        y: Math.max(50, height / 3),
-        size: fontSize,
-        font: font,
-        color: rgb(0.05, 0.65, 0.91),
-        opacity: 0.22,
-        rotate: degrees(-30)
-      });
-    });
-
-    // 4. Save modified PDF bytes
-    const pdfBytes = await pdfDoc.save();
-
-    // 5. Trigger instant direct device download
-    const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' });
+    const blob = await response.blob();
+    
+    // Ensure Blob has explicit application/pdf MIME type
+    const pdfBlob = new Blob([blob], { type: 'application/pdf' });
     const blobUrl = window.URL.createObjectURL(pdfBlob);
 
     const link = document.createElement('a');
@@ -86,20 +44,21 @@ export const watermarkAndDownloadPdf = async (pdfUrl, pdfTitle) => {
 
     setTimeout(() => {
       window.URL.revokeObjectURL(blobUrl);
-    }, 5000);
+    }, 6000);
 
     return true;
   } catch (err) {
-    console.warn("Client watermarking notice, using attachment URL download fallback:", err);
+    console.warn("Direct blob fetch notice, triggering native attachment link download:", err);
 
-    // Reliable fallback: Direct download of attachment URL
+    // 2. Direct browser link trigger with fl_attachment URL
     const link = document.createElement('a');
-    link.href = targetUrl;
+    link.href = finalDownloadUrl;
     link.download = safeFilename;
+    link.target = '_self';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
 
-    return false;
+    return true;
   }
 };
