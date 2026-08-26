@@ -1,6 +1,27 @@
 /**
+ * Normalizes Cloudinary PDF URLs so that both raw and image resource types download cleanly
+ * @param {string} url - Original URL stored in Firestore
+ * @returns {string} - Clean valid Cloudinary URL
+ */
+export const getCleanCloudinaryUrl = (url) => {
+  if (!url) return '';
+  
+  // For RAW resources: DO NOT add fl_attachment (it causes HTTP 400 ERR_INVALID_RESPONSE on Cloudinary raw endpoints)
+  if (url.includes('/raw/upload/')) {
+    return url.replace('/fl_attachment/', '/');
+  }
+
+  // For IMAGE resources: Inject fl_attachment so Cloudinary forces file download headers
+  if (url.includes('/image/upload/') && !url.includes('fl_attachment')) {
+    return url.replace('/image/upload/', '/image/upload/fl_attachment/');
+  }
+
+  return url;
+};
+
+/**
  * Direct Bulletproof PDF File Downloader
- * Converts Cloudinary media URLs into direct attachment download streams (fl_attachment)
+ * Converts Cloudinary media URLs into direct attachment download streams
  * so that the browser downloads the original complete PDF file directly to the customer's device.
  * 
  * @param {string} pdfUrl - The PDF URL stored in Firestore
@@ -13,16 +34,7 @@ export const watermarkAndDownloadPdf = async (pdfUrl, pdfTitle) => {
   }
 
   const safeFilename = `${(pdfTitle || 'MH_VISION_Document').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
-  let finalDownloadUrl = pdfUrl;
-
-  // Convert Cloudinary URL to force direct binary file attachment download header
-  if (pdfUrl.includes('cloudinary.com')) {
-    if (pdfUrl.includes('/image/upload/') && !pdfUrl.includes('fl_attachment')) {
-      finalDownloadUrl = pdfUrl.replace('/image/upload/', '/image/upload/fl_attachment/');
-    } else if (pdfUrl.includes('/raw/upload/') && !pdfUrl.includes('fl_attachment')) {
-      finalDownloadUrl = pdfUrl.replace('/raw/upload/', '/raw/upload/fl_attachment/');
-    }
-  }
+  const finalDownloadUrl = getCleanCloudinaryUrl(pdfUrl);
 
   try {
     // 1. Fetch PDF as Blob
@@ -48,13 +60,12 @@ export const watermarkAndDownloadPdf = async (pdfUrl, pdfTitle) => {
 
     return true;
   } catch (err) {
-    console.warn("Direct blob fetch notice, triggering native attachment link download:", err);
+    console.warn("Direct blob fetch notice, triggering native link download:", err);
 
-    // 2. Direct browser link trigger with fl_attachment URL
+    // 2. Direct browser link trigger with clean URL (no new tab popups)
     const link = document.createElement('a');
     link.href = finalDownloadUrl;
     link.download = safeFilename;
-    link.target = '_self';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

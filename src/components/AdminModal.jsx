@@ -23,8 +23,7 @@ import {
   AlertCircle,
   FileText,
   Eye,
-  EyeOff,
-  Download
+  EyeOff
 } from 'lucide-react';
 
 export const AdminModal = ({ isOpen, onClose, pdfs }) => {
@@ -43,7 +42,6 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
   const [category, setCategory] = useState('General');
-  const [allowDownload, setAllowDownload] = useState(false); // Default: protected reading only
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState('');
@@ -127,18 +125,16 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
         description,
         price: Number(price) || 0,
         category,
-        allowDownload: allowDownload,
         pdfUrl: pdfRes.url,
         coverUrl: coverUrl
       });
 
-      setUploadSuccess(`PDF "${title}" uploaded & published live! (Download: ${allowDownload ? 'Allowed' : 'Disabled'})`);
+      setUploadSuccess(`PDF "${title}" uploaded & published live!`);
       setPdfFile(null);
       setCoverFile(null);
       setTitle('');
       setDescription('');
       setPrice('');
-      setAllowDownload(false);
     } catch (err) {
       console.error("Upload error:", err);
       if (err.message?.includes('Permission') || err.message?.includes('permission-denied')) {
@@ -161,8 +157,7 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
         title: editingPdf.title,
         description: editingPdf.description,
         price: Number(editingPdf.price) || 0,
-        category: editingPdf.category,
-        allowDownload: !!editingPdf.allowDownload
+        category: editingPdf.category
       });
       alert("PDF updated successfully!");
       setEditingPdf(null);
@@ -276,7 +271,7 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
                 <h3 className="text-xl font-bold text-sky-600 dark:text-sky-400 flex items-center space-x-2">
                   <span>MH VISION Control Center</span>
                 </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Revenue analytics, PDF upload & admin management</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Revenue analytics, PDF upload & store management</p>
               </div>
 
               <div className="flex items-center space-x-1 overflow-x-auto bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
@@ -341,7 +336,7 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
                         <ShoppingBag className="w-7 h-7" />
                       </div>
                       <div>
-                        <span className="block text-xs font-semibold text-slate-500 dark:text-slate-400">Total PDF Unlocks</span>
+                        <span className="block text-xs font-semibold text-slate-500 dark:text-slate-400">Total Direct Downloads</span>
                         <span className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400">{analytics.totalSalesCount || 0}</span>
                       </div>
                     </div>
@@ -358,8 +353,8 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
                   </div>
 
                   <div className="p-4 rounded-2xl bg-sky-50/80 dark:bg-slate-950 border border-sky-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400 space-y-1">
-                    <p className="font-bold text-sky-700 dark:text-sky-400">💡 Cloudinary Storage Status</p>
-                    <p>PDF files are securely uploaded to Cloudinary (`wz1dlstf`) and registered in Firestore for live global delivery.</p>
+                    <p className="font-bold text-sky-700 dark:text-sky-400">💡 Instant File Download Store</p>
+                    <p>PDF files are stored on Cloudinary (`wz1dlstf`) and registered in Firestore. Customer purchases trigger direct watermarked file downloads straight to their devices.</p>
                   </div>
                 </div>
               )}
@@ -433,29 +428,6 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
                       onChange={(e) => setDescription(e.target.value)}
                       className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-sky-500"
                     />
-                  </div>
-
-                  {/* DOWNLOAD PERMISSION CHECKBOX */}
-                  <div className="p-3.5 bg-sky-50/80 dark:bg-slate-950 border border-sky-200 dark:border-slate-800 rounded-2xl flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="p-2 bg-sky-500/10 text-sky-600 dark:text-sky-400 rounded-xl">
-                        <Download className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <span className="block text-xs font-bold text-slate-900 dark:text-slate-100">Allow Customer File Download</span>
-                        <span className="block text-[11px] text-slate-500 dark:text-slate-400">If enabled, a Download button appears in the reader section.</span>
-                      </div>
-                    </div>
-                    
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={allowDownload}
-                        onChange={(e) => setAllowDownload(e.target.checked)}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-800 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-sky-500"></div>
-                    </label>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -541,19 +513,6 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
                         className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs"
                       />
 
-                      <div className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          id="editAllowDownload"
-                          checked={!!editingPdf.allowDownload}
-                          onChange={(e) => setEditingPdf({ ...editingPdf, allowDownload: e.target.checked })}
-                          className="rounded text-sky-500"
-                        />
-                        <label htmlFor="editAllowDownload" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                          Allow customers to download file
-                        </label>
-                      </div>
-
                       <button type="submit" className="px-4 py-2 bg-sky-500 text-white font-bold text-xs rounded-lg">Save Changes</button>
                     </form>
                   )}
@@ -566,11 +525,6 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
                           <div className="flex items-center space-x-3 text-xs mt-0.5">
                             <span className="text-sky-600 dark:text-sky-400 font-semibold">₹{pdf.price}</span>
                             <span className="text-slate-500">Category: {pdf.category || 'General'}</span>
-                            <span className={`font-semibold px-2 py-0.5 rounded text-[10px] ${
-                              pdf.allowDownload ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-700'
-                            }`}>
-                              {pdf.allowDownload ? 'Download Enabled' : 'Download Disabled'}
-                            </span>
                           </div>
                         </div>
 
