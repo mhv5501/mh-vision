@@ -1,6 +1,18 @@
 import { PDFDocument, rgb, degrees, StandardFonts } from 'pdf-lib';
 
 /**
+ * Normalizes a Cloudinary PDF URL so that raw binary PDF bytes can be fetched for watermarking & download
+ */
+const getFetchablePdfUrl = (url) => {
+  if (!url) return '';
+  // If uploaded as Cloudinary image resource, inject fl_attachment flag so Cloudinary returns original raw PDF file bytes
+  if (url.includes('cloudinary.com') && url.includes('/image/upload/') && !url.includes('fl_attachment')) {
+    return url.replace('/image/upload/', '/image/upload/fl_attachment/');
+  }
+  return url;
+};
+
+/**
  * Watermarks a PDF document with clean MH VISION brand text and triggers direct device download.
  * @param {string} pdfUrl - The original PDF URL
  * @param {string} pdfTitle - Title of the PDF document for naming the download file
@@ -11,15 +23,16 @@ export const watermarkAndDownloadPdf = async (pdfUrl, pdfTitle) => {
   }
 
   const safeFilename = `${(pdfTitle || 'MH_VISION_Document').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+  const targetUrl = getFetchablePdfUrl(pdfUrl);
 
   try {
     // 1. Fetch PDF ArrayBuffer
-    const response = await fetch(pdfUrl);
+    const response = await fetch(targetUrl);
     if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
     
     const existingPdfBytes = await response.arrayBuffer();
 
-    // Ensure we actually received valid non-zero PDF bytes
+    // Ensure valid non-zero PDF bytes
     if (!existingPdfBytes || existingPdfBytes.byteLength < 100) {
       throw new Error("Received empty or invalid PDF bytes from source.");
     }
@@ -77,13 +90,12 @@ export const watermarkAndDownloadPdf = async (pdfUrl, pdfTitle) => {
 
     return true;
   } catch (err) {
-    console.warn("Client watermarking notice, using direct URL download fallback:", err);
+    console.warn("Client watermarking notice, using attachment URL download fallback:", err);
 
-    // Reliable fallback: Direct download of the full Cloudinary PDF file
+    // Reliable fallback: Direct download of attachment URL
     const link = document.createElement('a');
-    link.href = pdfUrl;
+    link.href = targetUrl;
     link.download = safeFilename;
-    link.rel = 'noopener noreferrer';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
