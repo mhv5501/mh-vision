@@ -7,7 +7,7 @@ import {
   deletePdf, 
   subscribeToAnalytics 
 } from '../services/pdfStore';
-import { uploadToCloudinary } from '../services/cloudinary';
+import { uploadToCloudinary, detectMediaType } from '../services/cloudinary';
 import { 
   X, 
   Lock, 
@@ -24,8 +24,9 @@ import {
   FileText,
   Eye,
   EyeOff,
-  PackageCheck,
-  Layers
+  Layers,
+  Video,
+  Image as ImageIcon
 } from 'lucide-react';
 
 export const AdminModal = ({ isOpen, onClose, pdfs }) => {
@@ -40,7 +41,7 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
 
   // Upload Form State
   const [isBundle, setIsBundle] = useState(false);
-  const [pdfFiles, setPdfFiles] = useState([]);
+  const [mediaFiles, setMediaFiles] = useState([]);
   const [coverFile, setCoverFile] = useState(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -106,16 +107,16 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files || []);
     if (isBundle) {
-      setPdfFiles(files);
+      setMediaFiles(files);
     } else {
-      setPdfFiles(files.slice(0, 1));
+      setMediaFiles(files.slice(0, 1));
     }
   };
 
   const handleUpload = async (e) => {
     e.preventDefault();
-    if (pdfFiles.length === 0) {
-      alert("Please select at least one PDF file to upload.");
+    if (mediaFiles.length === 0) {
+      alert("Please select at least one PDF, Video, or Photo file to upload.");
       return;
     }
 
@@ -127,15 +128,17 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
     try {
       const uploadedBundleFiles = [];
 
-      for (let i = 0; i < pdfFiles.length; i++) {
-        const file = pdfFiles[i];
+      for (let i = 0; i < mediaFiles.length; i++) {
+        const file = mediaFiles[i];
         const res = await uploadToCloudinary(file, 'auto', (p) => {
-          const overall = Math.round(((i + p / 100) / pdfFiles.length) * 100);
+          const overall = Math.round(((i + p / 100) / mediaFiles.length) * 100);
           setUploadProgress(overall);
         });
+        
         uploadedBundleFiles.push({
-          name: file.name.replace(/\.pdf$/i, ''),
-          url: res.url
+          name: file.name.replace(/\.[a-z0-9]+$/i, ''),
+          url: res.url,
+          mediaType: res.mediaType || detectMediaType(file)
         });
       }
 
@@ -145,19 +148,22 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
         coverUrl = coverRes.url;
       }
 
+      const mainMediaType = uploadedBundleFiles[0]?.mediaType || detectMediaType(mediaFiles[0]);
+
       await addPdf({
         title,
         description,
         price: Number(price) || 0,
         category,
-        isBundle: isBundle || pdfFiles.length > 1,
+        mediaType: mainMediaType,
+        isBundle: isBundle || mediaFiles.length > 1,
         bundleFiles: uploadedBundleFiles,
         pdfUrl: uploadedBundleFiles[0]?.url || '',
         coverUrl: coverUrl
       });
 
-      setUploadSuccess(`Published "${title}" live! (${uploadedBundleFiles.length} PDF ${uploadedBundleFiles.length > 1 ? 'Files in Bundle' : 'File'})`);
-      setPdfFiles([]);
+      setUploadSuccess(`Published "${title}" live! (${uploadedBundleFiles.length} ${uploadedBundleFiles.length > 1 ? 'Media Files in Bundle' : mainMediaType.toUpperCase() + ' File'})`);
+      setMediaFiles([]);
       setCoverFile(null);
       setTitle('');
       setDescription('');
@@ -168,7 +174,7 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
       if (err.message?.includes('Permission') || err.message?.includes('permission-denied')) {
         setUploadError("Firestore Permission Error: Please update your Firestore Database Security Rules in Firebase Console to allow read/write.");
       } else {
-        setUploadError(err.message || "Failed to publish PDF.");
+        setUploadError(err.message || "Failed to publish file.");
       }
     } finally {
       setUploading(false);
@@ -188,11 +194,11 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
         category: editingPdf.category,
         isBundle: !!editingPdf.isBundle
       });
-      alert("PDF updated successfully!");
+      alert("Product updated successfully!");
       setEditingPdf(null);
     } catch (err) {
       console.error(err);
-      alert(err.message || "Failed to update PDF.");
+      alert(err.message || "Failed to update product.");
     }
   };
 
@@ -202,7 +208,7 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
         await deletePdf(pdfId);
       } catch (err) {
         console.error(err);
-        alert(err.message || "Failed to delete PDF.");
+        alert(err.message || "Failed to delete item.");
       }
     }
   };
@@ -300,7 +306,7 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
                 <h3 className="text-xl font-bold text-sky-600 dark:text-sky-400 flex items-center space-x-2">
                   <span>MH VISION Control Center</span>
                 </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Revenue analytics, PDF/Bundle upload & store management</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Upload PDFs, Videos, Photos & Bundles, view revenue & manage store</p>
               </div>
 
               <div className="flex items-center space-x-1 overflow-x-auto bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
@@ -320,7 +326,7 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
                   }`}
                 >
                   <UploadCloud className="w-3.5 h-3.5" />
-                  <span>Upload PDF / Bundle</span>
+                  <span>Upload Media / Bundle</span>
                 </button>
                 <button
                   onClick={() => setAdminTab('manage')}
@@ -375,15 +381,15 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
                         <BookOpen className="w-7 h-7" />
                       </div>
                       <div>
-                        <span className="block text-xs font-semibold text-slate-500 dark:text-slate-400">Active Listings Published</span>
+                        <span className="block text-xs font-semibold text-slate-500 dark:text-slate-400">Active Products Published</span>
                         <span className="text-2xl font-extrabold text-blue-600 dark:text-blue-400">{pdfs.length}</span>
                       </div>
                     </div>
                   </div>
 
                   <div className="p-4 rounded-2xl bg-sky-50/80 dark:bg-slate-950 border border-sky-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400 space-y-1">
-                    <p className="font-bold text-sky-700 dark:text-sky-400">💡 PDF & Multi-PDF Bundle Package Store</p>
-                    <p>Upload single PDFs or multi-file Bundle Packages under a single price point. Customer purchases trigger instant watermarked downloads of all files to their devices.</p>
+                    <p className="font-bold text-sky-700 dark:text-sky-400">💡 Multi-Media Digital Product Store</p>
+                    <p>Upload PDFs, Videos (.mp4), Photos (.jpg/.png), or Multi-Media Bundles. Customer purchases trigger instant direct file downloads straight to their devices.</p>
                   </div>
                 </div>
               )}
@@ -392,19 +398,19 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
                 <form onSubmit={handleUpload} className="space-y-4 max-w-2xl mx-auto">
                   <div className="flex items-center justify-between">
                     <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                      {isBundle ? 'Upload PDF Bundle Package' : 'Upload Single PDF'}
+                      {isBundle ? 'Upload Multi-Media Bundle Package' : 'Upload Single File (PDF / Video / Photo)'}
                     </h4>
 
                     {/* BUNDLE TOGGLE SWITCH */}
                     <button
                       type="button"
-                      onClick={() => { setIsBundle(!isBundle); setPdfFiles([]); }}
+                      onClick={() => { setIsBundle(!isBundle); setMediaFiles([]); }}
                       className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all ${
                         isBundle ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
                       }`}
                     >
                       <Layers className="w-3.5 h-3.5" />
-                      <span>{isBundle ? '📦 PDF Bundle Mode: ON' : 'Single PDF Mode'}</span>
+                      <span>{isBundle ? '📦 Bundle Mode: ON' : 'Single File Mode'}</span>
                     </button>
                   </div>
 
@@ -424,12 +430,12 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      {isBundle ? 'Bundle Title (e.g. Kerala PSC Super Pack 2026)' : 'PDF Title *'}
+                      {isBundle ? 'Bundle Title (e.g. Kerala PSC Video & PDF Pack 2026)' : 'Product Title *'}
                     </label>
                     <input
                       type="text"
                       required
-                      placeholder={isBundle ? "e.g. Current Affairs + GK 3-in-1 Bundle" : "e.g. Current Affairs 2026 Guide"}
+                      placeholder={isBundle ? "e.g. Video Masterclass + PDF Guide Bundle" : "e.g. Current Affairs Video / PDF Guide"}
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
                       className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-sky-500"
@@ -438,7 +444,7 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Price for Package in ₹ *</label>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Price in ₹ *</label>
                       <input
                         type="number"
                         required
@@ -460,8 +466,8 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
                         <option value="General">General</option>
                         <option value="Education">Education</option>
                         <option value="Current Affairs">Current Affairs</option>
-                        <option value="History">History</option>
-                        <option value="Science & Tech">Science & Tech</option>
+                        <option value="Video Masterclass">Video Masterclass</option>
+                        <option value="Photos & Graphics">Photos & Graphics</option>
                         <option value="Bundle Pack">Bundle Pack</option>
                       </select>
                     </div>
@@ -471,7 +477,7 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
                     <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Description</label>
                     <textarea
                       rows={3}
-                      placeholder={isBundle ? "List what's included in this PDF bundle package..." : "Brief overview of what the PDF covers..."}
+                      placeholder="Brief overview of what this download includes..."
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
                       className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-sky-500"
@@ -480,21 +486,25 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="p-4 bg-slate-50 dark:bg-slate-950 border border-dashed border-slate-300 dark:border-slate-800 rounded-2xl text-center">
-                      <FileText className="w-8 h-8 text-sky-500 mx-auto mb-2" />
+                      <div className="flex justify-center space-x-2 mb-2 text-sky-500">
+                        <FileText className="w-6 h-6" />
+                        <Video className="w-6 h-6 text-purple-500" />
+                        <ImageIcon className="w-6 h-6 text-emerald-500" />
+                      </div>
                       <span className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                        {isBundle ? 'Select Multiple PDF Files *' : 'Select PDF File *'}
+                        {isBundle ? 'Select PDF, Video, or Photo Files *' : 'Select PDF, Video, or Photo File *'}
                       </span>
                       <input
                         type="file"
-                        accept=".pdf"
+                        accept=".pdf,video/*,image/*"
                         required
                         multiple={isBundle}
                         onChange={handleFileChange}
                         className="text-xs text-slate-500 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-sky-500 file:text-white hover:file:bg-sky-600 cursor-pointer"
                       />
-                      {pdfFiles.length > 0 && (
+                      {mediaFiles.length > 0 && (
                         <p className="text-[11px] font-bold text-sky-600 dark:text-sky-400 mt-2">
-                          {pdfFiles.length} PDF {pdfFiles.length > 1 ? 'Files Selected' : 'File Selected'}
+                          {mediaFiles.length} {mediaFiles.length > 1 ? 'Files Selected' : 'File Selected'}
                         </p>
                       )}
                     </div>
@@ -529,7 +539,7 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
                     className="w-full py-3 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-bold rounded-xl text-sm shadow-md transition-all flex items-center justify-center space-x-2"
                   >
                     <UploadCloud className="w-4 h-4" />
-                    <span>{uploading ? 'Uploading Bundle...' : isBundle ? 'Publish PDF Bundle Live' : 'Publish PDF Live'}</span>
+                    <span>{uploading ? 'Uploading...' : 'Publish Product Live'}</span>
                   </button>
                 </form>
               )}
@@ -579,9 +589,17 @@ export const AdminModal = ({ isOpen, onClose, pdfs }) => {
                         <div>
                           <div className="flex items-center space-x-2">
                             <h5 className="font-bold text-sm text-slate-900 dark:text-slate-200">{pdf.title}</h5>
-                            {pdf.isBundle && (
+                            {pdf.isBundle ? (
                               <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300">
-                                📦 Bundle ({pdf.bundleFiles?.length || 1} PDFs)
+                                📦 Bundle ({pdf.bundleFiles?.length || 1} Files)
+                              </span>
+                            ) : (
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                pdf.mediaType === 'video' ? 'bg-purple-100 text-purple-700' :
+                                pdf.mediaType === 'image' ? 'bg-emerald-100 text-emerald-700' :
+                                'bg-sky-100 text-sky-700'
+                              }`}>
+                                {pdf.mediaType || 'PDF'}
                               </span>
                             )}
                           </div>

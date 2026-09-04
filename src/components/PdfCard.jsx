@@ -1,11 +1,53 @@
 import React from 'react';
 import { getPdfCoverUrl } from '../services/cloudinary';
-import { Download, ShoppingCart, IndianRupee, Sparkles, Layers } from 'lucide-react';
+import { Download, ShoppingCart, IndianRupee, Sparkles, Layers, Video, Image as ImageIcon, FileText } from 'lucide-react';
 
 export const PdfCard = ({ pdf, onBuy }) => {
   const isFree = pdf.price === 0 || Number(pdf.price) === 0;
   const coverUrl = getPdfCoverUrl(pdf.pdfUrl, pdf.coverUrl);
   const bundleCount = pdf.bundleFiles?.length || 1;
+  const mediaType = pdf.mediaType || 'pdf';
+
+  const renderBadge = () => {
+    if (pdf.isBundle) {
+      return (
+        <span className="inline-flex items-center space-x-1 bg-indigo-600 text-white text-[10px] sm:text-xs px-2.5 py-1 rounded-full font-bold shadow-md backdrop-blur-sm">
+          <Layers className="w-3 h-3 text-indigo-200" />
+          <span>BUNDLE ({bundleCount} Files)</span>
+        </span>
+      );
+    }
+    if (mediaType === 'video') {
+      return (
+        <span className="inline-flex items-center space-x-1 bg-purple-600 text-white text-[10px] sm:text-xs px-2.5 py-1 rounded-full font-bold shadow-md backdrop-blur-sm">
+          <Video className="w-3 h-3 text-purple-200" />
+          <span>VIDEO</span>
+        </span>
+      );
+    }
+    if (mediaType === 'image') {
+      return (
+        <span className="inline-flex items-center space-x-1 bg-emerald-600 text-white text-[10px] sm:text-xs px-2.5 py-1 rounded-full font-bold shadow-md backdrop-blur-sm">
+          <ImageIcon className="w-3 h-3 text-emerald-200" />
+          <span>PHOTO</span>
+        </span>
+      );
+    }
+    if (isFree) {
+      return (
+        <span className="inline-flex items-center space-x-1 bg-emerald-600 text-white text-[10px] sm:text-xs px-2.5 py-1 rounded-full font-bold shadow-md backdrop-blur-sm">
+          <Download className="w-3 h-3" />
+          <span>FREE PDF</span>
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center space-x-1 bg-sky-600 text-white text-[10px] sm:text-xs px-2.5 py-1 rounded-full font-bold shadow-md backdrop-blur-sm">
+        <FileText className="w-3 h-3 text-sky-200" />
+        <span>PDF</span>
+      </span>
+    );
+  };
 
   return (
     <div className="group relative bg-white dark:bg-slate-900 border border-sky-200/80 dark:border-slate-800 rounded-2xl overflow-hidden shadow-xs hover:shadow-xl hover:border-sky-400 transition-all duration-300 flex flex-col h-full">
@@ -19,24 +61,9 @@ export const PdfCard = ({ pdf, onBuy }) => {
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
         />
         
-        {/* Status Badge */}
+        {/* Format Badge */}
         <div className="absolute top-2.5 right-2.5 z-10">
-          {pdf.isBundle ? (
-            <span className="inline-flex items-center space-x-1 bg-indigo-600 text-white text-[10px] sm:text-xs px-2.5 py-1 rounded-full font-bold shadow-md backdrop-blur-sm">
-              <Layers className="w-3 h-3 text-indigo-200" />
-              <span>BUNDLE ({bundleCount} PDFs)</span>
-            </span>
-          ) : isFree ? (
-            <span className="inline-flex items-center space-x-1 bg-emerald-600 text-white text-[10px] sm:text-xs px-2.5 py-1 rounded-full font-bold shadow-md backdrop-blur-sm">
-              <Download className="w-3 h-3" />
-              <span>FREE</span>
-            </span>
-          ) : (
-            <span className="inline-flex items-center space-x-1 bg-sky-600 text-white text-[10px] sm:text-xs px-2.5 py-1 rounded-full font-bold shadow-md backdrop-blur-sm">
-              <Sparkles className="w-3 h-3 text-sky-200" />
-              <span>PREMIUM</span>
-            </span>
-          )}
+          {renderBadge()}
         </div>
 
         {/* Category Tag */}

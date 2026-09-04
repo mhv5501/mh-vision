@@ -6,7 +6,7 @@ import { AdminModal } from './components/AdminModal';
 import { AboutSection } from './components/AboutSection';
 import { subscribeToPdfs } from './services/pdfStore';
 import { openRazorpayPayment } from './services/razorpay';
-import { watermarkAndDownloadPdf, watermarkAndDownloadBundle } from './services/watermark';
+import { downloadMediaFile, watermarkAndDownloadBundle } from './services/watermark';
 import { Sparkles, ArrowRight } from 'lucide-react';
 
 export default function App() {
@@ -14,7 +14,7 @@ export default function App() {
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [downloadingInfo, setDownloadingInfo] = useState(null);
 
-  // Real-time Firestore PDF subscription
+  // Real-time Firestore Product subscription
   useEffect(() => {
     const unsub = subscribeToPdfs((pdfList) => {
       setPdfs(pdfList || []);
@@ -23,7 +23,7 @@ export default function App() {
     return () => unsub();
   }, []);
 
-  // Direct Purchase & Instant Watermarked Download (Single PDF or Bundle Package)
+  // Direct Purchase & Instant Device Download (PDFs, Videos, Photos & Bundles)
   const handleBuyPdf = async (pdf) => {
     const isFree = pdf.price === 0 || Number(pdf.price) === 0;
 
@@ -31,40 +31,41 @@ export default function App() {
       if (targetPdf.isBundle && targetPdf.bundleFiles?.length > 0) {
         setDownloadingInfo({
           id: targetPdf.id,
-          message: `Watermarking & Downloading ${targetPdf.bundleFiles.length} Bundle PDFs...`
+          message: `Preparing & Downloading ${targetPdf.bundleFiles.length} Bundle Files...`
         });
         try {
           await watermarkAndDownloadBundle(targetPdf.bundleFiles, targetPdf.title);
-          alert(`🎉 Payment Successful! All ${targetPdf.bundleFiles.length} PDFs in "${targetPdf.title}" have been watermarked & downloaded.`);
+          alert(`🎉 Payment Successful! All ${targetPdf.bundleFiles.length} files in "${targetPdf.title}" have been downloaded to your device.`);
         } catch (err) {
           console.error("Bundle download error:", err);
-          alert("Payment received! Triggering direct downloads.");
+          alert("Payment received! Triggering direct file downloads.");
         } finally {
           setDownloadingInfo(null);
         }
       } else {
+        const mediaLabel = targetPdf.mediaType ? targetPdf.mediaType.toUpperCase() : 'PDF';
         setDownloadingInfo({
           id: targetPdf.id,
-          message: `Embedding MH VISION Watermark & Downloading PDF...`
+          message: `Preparing & Downloading ${mediaLabel} File to Device...`
         });
         try {
-          await watermarkAndDownloadPdf(targetPdf.pdfUrl, targetPdf.title);
+          await downloadMediaFile(targetPdf.pdfUrl, targetPdf.title, targetPdf.mediaType);
         } catch (err) {
-          console.error("Single PDF download error:", err);
-          alert("Failed to download PDF. Please try again.");
+          console.error("Download error:", err);
+          alert("Failed to download file. Please try again.");
         } finally {
           setDownloadingInfo(null);
         }
       }
     };
 
-    // Free PDF or Free Bundle: Download immediately
+    // Free Item or Free Bundle: Download immediately to device
     if (isFree) {
       await triggerDownloadFlow(pdf);
       return;
     }
 
-    // Paid PDF or Paid Bundle: Launch Razorpay payment directly (bypassing prefill prompts)
+    // Paid Item or Paid Bundle: Launch Razorpay payment directly (bypassing prefill prompts)
     openRazorpayPayment({
       pdf,
       onSuccess: async ({ pdf: purchasedPdf }) => {
@@ -114,7 +115,7 @@ export default function App() {
             </h1>
 
             <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 font-medium leading-relaxed max-w-2xl">
-              Buy & instantly download single watermarked Malayalam PDFs or multi-file Bundle Packages straight to your smartphone or desktop. No sign-up required.
+              Buy & instantly download PDFs, Video masterclasses (.mp4), Photos (.jpg/.png), or Multi-Media Bundle Packages straight to your smartphone or desktop. No sign-up required.
             </p>
 
             <div className="flex flex-wrap gap-4 pt-2">
@@ -122,7 +123,7 @@ export default function App() {
                 onClick={scrollToCollection}
                 className="flex items-center space-x-2 px-6 py-3.5 rounded-2xl bg-sky-500 hover:bg-sky-600 text-white font-black text-sm shadow-md shadow-sky-500/20 transition-all hover:scale-[1.02]"
               >
-                <span>Browse Collection & Bundles</span>
+                <span>Browse Store & Media</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
@@ -132,7 +133,7 @@ export default function App() {
           <div className="absolute right-0 top-0 -mt-10 -mr-10 w-96 h-96 bg-sky-100/50 dark:bg-sky-900/10 rounded-full blur-3xl pointer-events-none" />
         </section>
 
-        {/* PDF COLLECTION GRID */}
+        {/* PDF & MEDIA COLLECTION GRID */}
         <PdfGrid
           pdfs={pdfs}
           onBuy={handleBuyPdf}

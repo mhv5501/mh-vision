@@ -2,16 +2,43 @@ const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'wz1dlstf';
 const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'ml_default';
 
 /**
- * Uploads a file (PDF or Image) directly to Cloudinary
+ * Detects the media type of a file
  * @param {File} file 
- * @param {string} resourceType - 'auto', 'raw', or 'image'
+ * @returns {'pdf' | 'video' | 'image'}
+ */
+export const detectMediaType = (file) => {
+  if (!file) return 'image';
+  const name = file.name.toLowerCase();
+  const type = file.type.toLowerCase();
+
+  if (type === 'application/pdf' || name.endsWith('.pdf')) {
+    return 'pdf';
+  }
+  if (type.startsWith('video/') || name.match(/\.(mp4|mov|avi|mkv|webm|flv|m4v)$/)) {
+    return 'video';
+  }
+  return 'image';
+};
+
+/**
+ * Uploads a file (PDF, Video, or Image) directly to Cloudinary
+ * @param {File} file 
+ * @param {string} resourceType - 'auto', 'raw', 'video', or 'image'
  * @param {function} onProgress - optional progress callback
- * @returns {Promise<{url: string, publicId: string, format: string}>}
+ * @returns {Promise<{url: string, publicId: string, format: string, mediaType: string}>}
  */
 export const uploadToCloudinary = async (file, resourceType = 'auto', onProgress) => {
-  // Store PDFs in Cloudinary's raw document storage so raw binary PDF download works 100%
-  const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
-  const targetResourceType = isPdf ? 'raw' : (resourceType === 'auto' ? 'image' : resourceType);
+  const mediaType = detectMediaType(file);
+  
+  // Route file to correct Cloudinary API endpoint based on media type
+  let targetResourceType = 'image';
+  if (mediaType === 'pdf') {
+    targetResourceType = 'raw';
+  } else if (mediaType === 'video') {
+    targetResourceType = 'video';
+  } else {
+    targetResourceType = resourceType === 'auto' ? 'image' : resourceType;
+  }
   
   const url = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${targetResourceType}/upload`;
   const formData = new FormData();
@@ -38,8 +65,9 @@ export const uploadToCloudinary = async (file, resourceType = 'auto', onProgress
         resolve({
           url: response.secure_url,
           publicId: response.public_id,
-          format: response.format,
-          bytes: response.bytes
+          format: response.format || mediaType,
+          bytes: response.bytes,
+          mediaType: mediaType
         });
       } else {
         try {
@@ -57,14 +85,19 @@ export const uploadToCloudinary = async (file, resourceType = 'auto', onProgress
 };
 
 /**
- * Helper to generate Cloudinary thumbnail for a PDF document
+ * Helper to generate Cloudinary cover thumbnail for a document or video
  */
 export const getPdfCoverUrl = (pdfUrl, fallbackCover) => {
   if (fallbackCover) return fallbackCover;
   if (!pdfUrl) return '/logo.jpg';
   
   if (pdfUrl.includes('cloudinary.com')) {
-    return pdfUrl.replace(/\.pdf$/i, '.jpg');
+    if (pdfUrl.includes('/video/upload/')) {
+      return pdfUrl.replace(/\.[a-z0-9]+$/i, '.jpg');
+    }
+    if (pdfUrl.includes('/image/upload/')) {
+      return pdfUrl.replace(/\.pdf$/i, '.jpg');
+    }
   }
   return '/logo.jpg';
 };

@@ -20,7 +20,7 @@ const SETTINGS_COLLECTION = 'settings';
 const DEFAULT_ADMIN_PASSWORD = import.meta.env.VITE_INITIAL_ADMIN_PASSWORD || 'admin123';
 
 /**
- * Subscribe to all uploaded PDFs in real-time
+ * Subscribe to all uploaded PDFs, Videos, Photos & Bundles in real-time
  */
 export const subscribeToPdfs = (callback) => {
   const pdfsRef = collection(db, PDFS_COLLECTION);
@@ -39,7 +39,7 @@ export const subscribeToPdfs = (callback) => {
 };
 
 /**
- * Add a new PDF or Multi-PDF Bundle Package (Admin)
+ * Add a new PDF, Video, Photo, or Multi-Media Bundle Package (Admin)
  */
 export const addPdf = async (pdfData) => {
   const docData = {
@@ -47,8 +47,9 @@ export const addPdf = async (pdfData) => {
     description: pdfData.description || '',
     price: Number(pdfData.price) || 0, // Price in Rupees ₹
     category: pdfData.category || 'General',
-    isBundle: !!pdfData.isBundle, // Flag for multi-PDF bundle package
-    bundleFiles: pdfData.bundleFiles || [], // Array of [{ name: '...', url: '...' }]
+    mediaType: pdfData.mediaType || 'pdf', // 'pdf' | 'video' | 'image'
+    isBundle: !!pdfData.isBundle, // Flag for multi-media bundle package
+    bundleFiles: pdfData.bundleFiles || [], // Array of [{ name: '...', url: '...', mediaType: '...' }]
     pdfUrl: pdfData.pdfUrl || (pdfData.bundleFiles?.[0]?.url || ''),
     coverUrl: pdfData.coverUrl || '',
     createdAt: new Date().toISOString(),
@@ -68,7 +69,7 @@ export const addPdf = async (pdfData) => {
 };
 
 /**
- * Update an existing PDF or PDF Bundle Package (Admin)
+ * Update an existing Product or Bundle Package (Admin)
  */
 export const updatePdf = async (pdfId, pdfData) => {
   const pdfRef = doc(db, PDFS_COLLECTION, pdfId);
@@ -81,6 +82,7 @@ export const updatePdf = async (pdfId, pdfData) => {
     updatedAt: new Date().toISOString()
   };
 
+  if (pdfData.mediaType) updateFields.mediaType = pdfData.mediaType;
   if (pdfData.bundleFiles) updateFields.bundleFiles = pdfData.bundleFiles;
   if (pdfData.pdfUrl) updateFields.pdfUrl = pdfData.pdfUrl;
   if (pdfData.coverUrl) updateFields.coverUrl = pdfData.coverUrl;
@@ -96,7 +98,7 @@ export const updatePdf = async (pdfId, pdfData) => {
 };
 
 /**
- * Delete a PDF (Admin)
+ * Delete a Product (Admin)
  */
 export const deletePdf = async (pdfId) => {
   const pdfRef = doc(db, PDFS_COLLECTION, pdfId);
