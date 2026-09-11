@@ -219,17 +219,6 @@ export const ProductDetailPage = ({ product, allProducts, onBuy, onBack, onSelec
             </div>
           )}
 
-          {/* Features Guarantee */}
-          <div className="grid grid-cols-2 gap-3 pt-2 text-xs text-slate-500 dark:text-slate-400 font-semibold">
-            <div className="flex items-center space-x-2 p-2.5 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
-              <CheckCircle2 className="w-4 h-4 text-sky-500 flex-shrink-0" />
-              <span>Instant Device Download</span>
-            </div>
-            <div className="flex items-center space-x-2 p-2.5 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
-              <CheckCircle2 className="w-4 h-4 text-sky-500 flex-shrink-0" />
-              <span>No Sign-up / Login Required</span>
-            </div>
-          </div>
 
         </div>
       </div>
