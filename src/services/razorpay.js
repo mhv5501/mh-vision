@@ -23,7 +23,7 @@ export const loadRazorpaySdk = () => {
 };
 
 /**
- * Initiates Razorpay payment with standard contact details prompt enabled
+ * Initiates Razorpay payment with editable phone and email inputs
  * @param {object} pdf - PDF object { id, title, price, ... }
  * @param {function} onSuccess - Callback when payment succeeds
  * @param {function} onError - Callback when payment fails or cancels
@@ -48,8 +48,23 @@ export const openRazorpayPayment = async ({ pdf, onSuccess, onError }) => {
     description: `Buy & Download: ${pdf.title}`,
     image: "/logo.jpg",
     payment_capture: 1, // Automatically capture payment instantly
+    prefill: {
+      name: "",
+      email: "",
+      contact: ""
+    },
+    readonly: {
+      name: false,
+      email: false,
+      contact: false
+    },
+    hidden: {
+      name: false,
+      email: false,
+      contact: false
+    },
     theme: {
-      color: "#0ea5e9" // Light Blue theme color
+      color: "#0ea5e9"
     },
     handler: async function (response) {
       try {
@@ -59,11 +74,11 @@ export const openRazorpayPayment = async ({ pdf, onSuccess, onError }) => {
         if (onSuccess) onSuccess({ paymentId, pdf });
       } catch (err) {
         console.error("Error saving purchase analytics:", err);
-        // Still proceed with download even if analytics recording encounters a notice
         if (onSuccess) onSuccess({ paymentId: response.razorpay_payment_id, pdf });
       }
     },
     modal: {
+      confirm_close: true,
       ondismiss: function () {
         if (onError) onError(new Error("Payment cancelled by user"));
       }
