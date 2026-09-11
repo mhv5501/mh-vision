@@ -156,33 +156,38 @@ export const ProductDetailPage = ({ product, allProducts, onBuy, onBack, onSelec
             </h1>
           </div>
 
-          {/* Pricing Banner */}
-          <div className="p-4 rounded-2xl bg-sky-50/70 dark:bg-slate-950 border border-sky-200 dark:border-slate-800 flex items-center justify-between">
-            <div>
-              <span className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Instant Access Price</span>
-              <div className="flex items-center text-slate-900 dark:text-sky-400 font-extrabold text-2xl sm:text-3xl">
-                <IndianRupee className="w-6 h-6 stroke-[2.5] mr-1" />
-                <span>{isFree ? 'FREE DOWNLOAD' : product.price}</span>
+          {/* Pricing & Download Card */}
+          <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-br from-sky-50/80 to-blue-50/40 dark:from-slate-950 dark:to-slate-900 border border-sky-200/80 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+            <div className="space-y-1">
+              <span className="block text-[11px] sm:text-xs font-bold text-sky-700 dark:text-sky-400 uppercase tracking-wider">Instant Access Price</span>
+              <div className="flex items-center text-slate-900 dark:text-sky-400 font-black text-2xl sm:text-3xl">
+                {!isFree && <IndianRupee className="w-6 h-6 stroke-[2.5] mr-0.5 text-slate-900 dark:text-sky-400" />}
+                <span className="tracking-tight">{isFree ? 'FREE' : product.price}</span>
+                {isFree && (
+                  <span className="ml-2 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
+                    No Cost
+                  </span>
+                )}
               </div>
             </div>
 
             <button
               onClick={() => onBuy(product)}
-              className="px-6 py-3.5 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-black text-sm rounded-xl shadow-lg shadow-sky-500/20 transition-all hover:scale-105 flex items-center space-x-2"
+              className="w-full sm:w-auto px-7 py-4 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-black text-sm sm:text-base rounded-xl shadow-lg shadow-sky-500/25 transition-all hover:scale-[1.02] flex items-center justify-center space-x-2.5 cursor-pointer"
             >
               {product.isBundle ? (
                 <>
-                  <Layers className="w-4 h-4" />
+                  <Layers className="w-5 h-5" />
                   <span>Buy Bundle & Download</span>
                 </>
               ) : isFree ? (
                 <>
-                  <Download className="w-4 h-4" />
+                  <Download className="w-5 h-5" />
                   <span>Download Now</span>
                 </>
               ) : (
                 <>
-                  <ShoppingCart className="w-4 h-4" />
+                  <ShoppingCart className="w-5 h-5" />
                   <span>Buy & Download</span>
                 </>
               )}
