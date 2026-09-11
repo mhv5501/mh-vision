@@ -4,6 +4,7 @@ import { Footer } from './components/Footer';
 import { PdfGrid } from './components/PdfGrid';
 import { AdminModal } from './components/AdminModal';
 import { AboutSection } from './components/AboutSection';
+import { ProductDetailPage } from './components/ProductDetailPage';
 import { subscribeToPdfs } from './services/pdfStore';
 import { openRazorpayPayment } from './services/razorpay';
 import { downloadMediaFile, watermarkAndDownloadBundle } from './services/watermark';
@@ -13,6 +14,12 @@ export default function App() {
   const [pdfs, setPdfs] = useState([]);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [downloadingInfo, setDownloadingInfo] = useState(null);
+  
+  // URL routing state: ?product=PRODUCT_ID
+  const [selectedProductId, setSelectedProductId] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('product') || null;
+  });
 
   // Real-time Firestore Product subscription
   useEffect(() => {
@@ -22,6 +29,32 @@ export default function App() {
 
     return () => unsub();
   }, []);
+
+  // Listen to browser back/forward history navigation
+  useEffect(() => {
+    const handlePopState = () => {
+      const params = new URLSearchParams(window.location.search);
+      setSelectedProductId(params.get('product') || null);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // Navigation helpers for shareable URLs
+  const navigateToProduct = (product) => {
+    if (!product || !product.id) return;
+    setSelectedProductId(product.id);
+    const newUrl = `${window.location.pathname}?product=${product.id}`;
+    window.history.pushState({ productId: product.id }, '', newUrl);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const navigateHome = () => {
+    setSelectedProductId(null);
+    window.history.pushState(null, '', window.location.pathname);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   // Direct Purchase & Instant Device Download (PDFs, Videos, Photos & Bundles)
   const handleBuyPdf = async (pdf) => {
@@ -84,6 +117,13 @@ export default function App() {
     if (element) element.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // Improved product matching with robust fallback
+  const activeProduct = selectedProductId 
+    ? (pdfs.find(p => String(p.id) === String(selectedProductId)) || 
+       pdfs.find(p => encodeURIComponent(p.title) === selectedProductId) || 
+       null)
+    : null;
+
   return (
     <div className="min-h-screen flex flex-col bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans selection:bg-sky-400 selection:text-white">
       
@@ -101,46 +141,61 @@ export default function App() {
           </div>
         )}
 
-        {/* HERO BANNER SECTION */}
-        <section className="relative overflow-hidden rounded-3xl bg-white dark:bg-slate-900 border border-sky-200/80 dark:border-slate-800 text-slate-900 dark:text-slate-100 p-8 sm:p-14 shadow-lg shadow-sky-500/5">
-          <div className="relative z-10 max-w-3xl space-y-6">
-            
-            <div className="inline-flex items-center space-x-2 px-3.5 py-1 rounded-full bg-sky-50 dark:bg-sky-500/10 text-sky-700 dark:text-sky-400 text-xs font-bold border border-sky-200 dark:border-sky-500/20">
-              <Sparkles className="w-3.5 h-3.5 text-sky-500" />
-              <span>Malayalam Knowledge Hub • MH VISION</span>
-            </div>
+        {activeProduct ? (
+          /* SHAREABLE PRODUCT DETAIL PAGE VIEW */
+          <ProductDetailPage
+            product={activeProduct}
+            allProducts={pdfs}
+            onBuy={handleBuyPdf}
+            onBack={navigateHome}
+            onSelectProduct={navigateToProduct}
+          />
+        ) : (
+          /* MAIN STOREFRONT GRID VIEW */
+          <>
+            {/* HERO BANNER SECTION */}
+            <section className="relative overflow-hidden rounded-3xl bg-white dark:bg-slate-900 border border-sky-200/80 dark:border-slate-800 text-slate-900 dark:text-slate-100 p-8 sm:p-14 shadow-lg shadow-sky-500/5">
+              <div className="relative z-10 max-w-3xl space-y-6">
+                
+                <div className="inline-flex items-center space-x-2 px-3.5 py-1 rounded-full bg-sky-50 dark:bg-sky-500/10 text-sky-700 dark:text-sky-400 text-xs font-bold border border-sky-200 dark:border-sky-500/20">
+                  <Sparkles className="w-3.5 h-3.5 text-sky-500" />
+                  <span>Malayalam Knowledge Hub • MH VISION</span>
+                </div>
 
-            <h1 className="text-3xl sm:text-5xl font-black tracking-tight leading-tight">
-              Think Smart, <span className="text-sky-600 dark:text-sky-400">Stay Ahead.</span>
-            </h1>
+                <h1 className="text-3xl sm:text-5xl font-black tracking-tight leading-tight">
+                  Think Smart, <span className="text-sky-600 dark:text-sky-400">Stay Ahead.</span>
+                </h1>
 
-            <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 font-medium leading-relaxed max-w-2xl">
-              Buy & instantly download PDFs, Video masterclasses (.mp4), Photos (.jpg/.png), or Multi-Media Bundle Packages straight to your smartphone or desktop. No sign-up required.
-            </p>
+                <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 font-medium leading-relaxed max-w-2xl">
+                  Buy & instantly download PDFs, Video masterclasses (.mp4), Photos (.jpg/.png), or Multi-Media Bundle Packages straight to your smartphone or desktop. No sign-up required.
+                </p>
 
-            <div className="flex flex-wrap gap-4 pt-2">
-              <button
-                onClick={scrollToCollection}
-                className="flex items-center space-x-2 px-6 py-3.5 rounded-2xl bg-sky-500 hover:bg-sky-600 text-white font-black text-sm shadow-md shadow-sky-500/20 transition-all hover:scale-[1.02]"
-              >
-                <span>Browse Store & Media</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
+                <div className="flex flex-wrap gap-4 pt-2">
+                  <button
+                    onClick={scrollToCollection}
+                    className="flex items-center space-x-2 px-6 py-3.5 rounded-2xl bg-sky-500 hover:bg-sky-600 text-white font-black text-sm shadow-md shadow-sky-500/20 transition-all hover:scale-[1.02]"
+                  >
+                    <span>Browse Store & Media</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
 
-          </div>
+              </div>
 
-          <div className="absolute right-0 top-0 -mt-10 -mr-10 w-96 h-96 bg-sky-100/50 dark:bg-sky-900/10 rounded-full blur-3xl pointer-events-none" />
-        </section>
+              <div className="absolute right-0 top-0 -mt-10 -mr-10 w-96 h-96 bg-sky-100/50 dark:bg-sky-900/10 rounded-full blur-3xl pointer-events-none" />
+            </section>
 
-        {/* PDF & MEDIA COLLECTION GRID */}
-        <PdfGrid
-          pdfs={pdfs}
-          onBuy={handleBuyPdf}
-        />
+            {/* PDF & MEDIA COLLECTION GRID */}
+            <PdfGrid
+              pdfs={pdfs}
+              onBuy={handleBuyPdf}
+              onSelectProduct={navigateToProduct}
+            />
 
-        {/* ABOUT SECTION */}
-        <AboutSection />
+            {/* ABOUT SECTION */}
+            <AboutSection />
+          </>
+        )}
 
       </main>
 

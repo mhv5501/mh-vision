@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { PdfCard } from './PdfCard';
 import { Search, BookOpen, Sparkles } from 'lucide-react';
 
-export const PdfGrid = ({ pdfs, onBuy }) => {
+export const PdfGrid = ({ pdfs, onBuy, onSelectProduct }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
 
@@ -23,10 +23,10 @@ export const PdfGrid = ({ pdfs, onBuy }) => {
         <div>
           <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-slate-100 flex items-center space-x-2">
             <BookOpen className="w-6 h-6 sm:w-7 sm:h-7 text-sky-500" />
-            <span>PDF Collection</span>
+            <span>Digital Media Collection</span>
           </h2>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Buy once & instantly download watermarked PDF guides directly to your device
+            Click any product to view details or buy & instantly download to your device
           </p>
         </div>
 
@@ -38,7 +38,7 @@ export const PdfGrid = ({ pdfs, onBuy }) => {
             <Search className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
             <input
               type="text"
-              placeholder="Search PDFs..."
+              placeholder="Search products..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-9 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-sky-200/80 dark:border-slate-800 rounded-xl text-xs sm:text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-sky-500 transition-colors shadow-xs"
@@ -73,17 +73,18 @@ export const PdfGrid = ({ pdfs, onBuy }) => {
               key={pdf.id}
               pdf={pdf}
               onBuy={onBuy}
+              onSelectProduct={onSelectProduct}
             />
           ))}
         </div>
       ) : (
         <div className="text-center py-16 bg-slate-50 dark:bg-slate-900/50 rounded-3xl border border-dashed border-sky-200 dark:border-slate-800 p-8">
           <Sparkles className="w-12 h-12 text-sky-500 mx-auto mb-3 opacity-60 animate-pulse" />
-          <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200">No PDFs Found</h3>
+          <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200">No Products Found</h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
             {searchTerm || selectedCategory !== 'All' 
-              ? 'Try clearing your search filters to view available PDFs.' 
-              : 'The collection is empty. New PDFs will be uploaded soon by the admin!'}
+              ? 'Try clearing your search filters to view available products.' 
+              : 'The collection is empty. New digital products will be uploaded soon by the admin!'}
           </p>
         </div>
       )}
