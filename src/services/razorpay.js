@@ -23,12 +23,42 @@ export const loadRazorpaySdk = () => {
 };
 
 /**
- * Initiates standard Razorpay payment prompting user for contact details
+ * Clears Razorpay stored checkout sessions from browser localStorage/sessionStorage
+ */
+const clearRazorpayClientCache = () => {
+  try {
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.toLowerCase().includes('rzp') || key.toLowerCase().includes('razorpay'))) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach((k) => localStorage.removeItem(k));
+
+    const sessionKeysToRemove = [];
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key && (key.toLowerCase().includes('rzp') || key.toLowerCase().includes('razorpay'))) {
+        sessionKeysToRemove.push(key);
+      }
+    }
+    sessionKeysToRemove.forEach((k) => sessionStorage.removeItem(k));
+  } catch (e) {
+    console.warn("Could not clear local storage cache:", e);
+  }
+};
+
+/**
+ * Initiates standard Razorpay payment with fresh customer prompt
  * @param {object} pdf - PDF object { id, title, price, ... }
  * @param {function} onSuccess - Callback when payment succeeds
  * @param {function} onError - Callback when payment fails or cancels
  */
 export const openRazorpayPayment = async ({ pdf, onSuccess, onError }) => {
+  // Clear any cached dummy phone session
+  clearRazorpayClientCache();
+
   const loaded = await loadRazorpaySdk();
 
   if (!loaded || !window.Razorpay) {
@@ -50,6 +80,12 @@ export const openRazorpayPayment = async ({ pdf, onSuccess, onError }) => {
     payment_capture: 1,
     theme: {
       color: "#0ea5e9"
+    },
+    // Explicitly enforce that no field is readonly
+    readonly: {
+      contact: false,
+      email: false,
+      name: false
     },
     handler: async function (response) {
       try {
