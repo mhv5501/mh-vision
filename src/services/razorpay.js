@@ -23,7 +23,7 @@ export const loadRazorpaySdk = () => {
 };
 
 /**
- * Initiates Razorpay payment with editable phone and email inputs
+ * Initiates standard Razorpay payment prompting user for contact details
  * @param {object} pdf - PDF object { id, title, price, ... }
  * @param {function} onSuccess - Callback when payment succeeds
  * @param {function} onError - Callback when payment fails or cancels
@@ -47,29 +47,13 @@ export const openRazorpayPayment = async ({ pdf, onSuccess, onError }) => {
     name: "MH VISION",
     description: `Buy & Download: ${pdf.title}`,
     image: "/logo.jpg",
-    payment_capture: 1, // Automatically capture payment instantly
-    prefill: {
-      name: "",
-      email: "",
-      contact: ""
-    },
-    readonly: {
-      name: false,
-      email: false,
-      contact: false
-    },
-    hidden: {
-      name: false,
-      email: false,
-      contact: false
-    },
+    payment_capture: 1,
     theme: {
       color: "#0ea5e9"
     },
     handler: async function (response) {
       try {
         const paymentId = response.razorpay_payment_id;
-        // Record purchase in Firestore analytics
         await recordPurchase('guest_user', 'guest@mhvision.com', pdf.id, pdf.price, paymentId);
         if (onSuccess) onSuccess({ paymentId, pdf });
       } catch (err) {
