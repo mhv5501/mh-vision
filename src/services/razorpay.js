@@ -23,7 +23,7 @@ export const loadRazorpaySdk = () => {
 };
 
 /**
- * Initiates Razorpay payment directly into payment selection without prefill prompts
+ * Initiates Razorpay payment with standard contact details prompt enabled
  * @param {object} pdf - PDF object { id, title, price, ... }
  * @param {function} onSuccess - Callback when payment succeeds
  * @param {function} onError - Callback when payment fails or cancels
@@ -45,44 +45,11 @@ export const openRazorpayPayment = async ({ pdf, onSuccess, onError }) => {
     amount: amountInPaisa,
     currency: "INR",
     name: "MH VISION",
-    description: `Buy & Download PDF: ${pdf.title}`,
+    description: `Buy & Download: ${pdf.title}`,
     image: "/logo.jpg",
-    payment_capture: 1, // Automatically capture all payments instantly without manual intervention
-    prefill: {
-      name: "MH VISION Customer",
-      email: "customer@mhvision.com",
-      contact: "9496001234" // Valid formatted 10-digit number to bypass Razorpay contact input prompt
-    },
-    readonly: {
-      contact: true,
-      email: true,
-      name: true
-    },
-    hidden: {
-      contact: true,
-      email: true,
-      name: true
-    },
+    payment_capture: 1, // Automatically capture payment instantly
     theme: {
       color: "#0ea5e9" // Light Blue theme color
-    },
-    config: {
-      display: {
-        blocks: {
-          banks: {
-            name: "Select Payment Method",
-            instruments: [
-              { method: "upi" },
-              { method: "netbanking" },
-              { method: "card" }
-            ]
-          }
-        },
-        sequence: ["block.banks"],
-        preferences: {
-          show_default_blocks: true
-        }
-      }
     },
     handler: async function (response) {
       try {
